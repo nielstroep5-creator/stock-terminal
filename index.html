@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock Terminal</title>
+<meta name="description" content="A free stock research app for your own computer: financials of every US company, screener, compare, watchlists and alerts. Free public data, no account.">
+<link rel="icon" href="icon.png">
+<style>
+  :root { --bg:#f7f8fa; --card:#fff; --fg:#14161a; --muted:#5d6470; --line:#e3e6eb; --primary:#2456d6; --on-primary:#fff; --panel:#f0f2f5; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0d0e11; --card:#15171b; --fg:#e9ebef; --muted:#9aa1ad; --line:#272a31; --primary:#7da2ff; --on-primary:#0d0e11; --panel:#1b1e23; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 880px; margin: 0 auto; padding: 48px 16px 64px; }
+  header { display:flex; align-items:center; gap:14px; }
+  header img { width:52px; height:52px; border-radius:12px; }
+  h1 { font-size: 30px; margin: 0; letter-spacing: -0.01em; }
+  .lead { font-size: 18px; color: var(--muted); margin: 18px 0 28px; max-width: 640px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+  .dl { display:flex; flex-wrap:wrap; gap:10px; margin-top: 4px; }
+  .btn { display:inline-flex; align-items:center; gap:8px; padding: 11px 18px; border-radius: 9px; font-weight: 600; text-decoration:none; border:1px solid var(--line); color: var(--fg); background: var(--card); }
+  .btn.primary { background: var(--primary); color: var(--on-primary); border-color: transparent; }
+  .small { font-size: 13px; color: var(--muted); }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 28px; }
+  .grid h3 { margin: 0 0 4px; font-size: 15px; }
+  .grid p { margin: 0; font-size: 14px; color: var(--muted); }
+  h2 { font-size: 19px; margin: 40px 0 10px; }
+  ol { padding-left: 20px; margin: 0; }
+  li { margin: 4px 0; }
+  code { background: var(--panel); padding: 1px 6px; border-radius: 5px; font-size: 13px; }
+  footer { margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+  a { color: var(--primary); }
+</style>
+</head>
+<body>
+<main>
+  <header><img src="icon.png" alt=""><h1>Stock Terminal</h1></header>
+  <p class="lead">A free stock research app for your own computer. The financials of every US listed company back to 2009, a screener, side-by-side charts, watchlists and alerts. Built on free public data, with no account and no subscription.</p>
+
+  <div class="card">
+    <div id="version" class="small">Looking up the newest version…</div>
+    <div class="dl" id="buttons">
+      <a class="btn primary" href="https://github.com/nielstroep5-creator/stock-terminal-releases/releases">Download</a>
+    </div>
+    <p class="small" style="margin:12px 0 0">Windows 10 or 11: run the installer, nothing else needed. Mac: unzip and drag Stock Terminal to Applications. The app updates itself after that.</p>
+  </div>
+
+  <div class="grid">
+    <div class="card"><h3>Every US company</h3><p>Income statement, balance sheet, cash flow, segments, ratios and valuation, annual, quarterly and TTM. All in US dollars.</p></div>
+    <div class="card"><h3>Screener and Compare</h3><p>Filter on about 75 numbers per company, and chart revenue growth, margins or price for several companies side by side.</p></div>
+    <div class="card"><h3>Watchlists and alerts</h3><p>Price limits, big moves, new results and dividend changes, in the app and on your phone.</p></div>
+    <div class="card"><h3>Your data stays yours</h3><p>Everything is stored on your own computer. The S&amp;P 500 is ready in a few minutes with the starter pack.</p></div>
+  </div>
+
+  <h2>Getting started</h2>
+  <ol>
+    <li>Download and install (Windows may warn about an unknown publisher: click <b>More info</b>, then <b>Run anyway</b>).</li>
+    <li>Enter an email address. The SEC, where the financial reports come from, asks every tool for a contact email. It stays on your computer.</li>
+    <li>Click <b>Get the S&amp;P 500</b>, or search any company and open it to load it.</li>
+  </ol>
+
+  <h2>Found a problem?</h2>
+  <p>In the app: Settings, About, <b>Report a problem</b>. Or <a href="https://github.com/nielstroep5-creator/stock-terminal-releases/issues/new">open an issue</a> here.</p>
+
+  <footer>
+    All numbers come from free public sources (SEC EDGAR and Yahoo Finance) and are processed automatically, so they can be late or wrong. Check important numbers in the company’s own reports. Nothing in this app is investment advice.<br>
+    Free and open source under the MIT licence. <a href="https://github.com/nielstroep5-creator/stock-terminal-releases/releases">All versions and release notes</a>.
+  </footer>
+</main>
+<script>
+  // The newest finished version (or the newest test version while there is none yet), straight from the release list.
+  fetch('https://api.github.com/repos/nielstroep5-creator/stock-terminal-releases/releases?per_page=30')
+    .then(r => r.json())
+    .then(list => {
+      const apps = list.filter(r => !r.draft && /^v\d/.test(r.tag_name))
+      const rel = apps.find(r => !r.prerelease) || apps[0]
+      if (!rel) { document.getElementById('version').textContent = 'The first version is coming soon.'; return }
+      const asset = (test) => (rel.assets || []).find(a => test(a.name.toLowerCase()))
+      const win = asset(n => n.startsWith('stock-terminal-setup') && n.endsWith('.exe'))
+      const mac = asset(n => n.endsWith('-mac.zip'))
+      const mb = a => Math.round(a.size / 1e6) + ' MB'
+      document.getElementById('version').textContent =
+        `Version ${rel.tag_name.replace(/^v/, '')}${rel.prerelease ? ' (test version)' : ''}, ${new Date(rel.published_at).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}`
+      const b = document.getElementById('buttons')
+      b.innerHTML = ''
+      const add = (a, label, primary) => {
+        if (!a) return
+        const el = document.createElement('a')
+        el.className = 'btn' + (primary ? ' primary' : '')
+        el.href = a.browser_download_url
+        el.textContent = `${label} (${mb(a)})`
+        b.appendChild(el)
+      }
+      const isMac = /Mac/i.test(navigator.platform || navigator.userAgent)
+      add(isMac ? mac : win, isMac ? 'Download for Mac' : 'Download for Windows', true)
+      add(isMac ? win : mac, isMac ? 'Windows' : 'Mac', false)
+      const notes = document.createElement('a'); notes.className = 'btn'; notes.href = rel.html_url; notes.textContent = 'What’s new'
+      b.appendChild(notes)
+    })
+    .catch(() => { document.getElementById('version').textContent = 'See all versions on the release page.' })
+</script>
+</body>
+</html>
