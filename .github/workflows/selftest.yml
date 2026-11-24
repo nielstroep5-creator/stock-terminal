@@ -1,0 +1,27 @@
+# Runs the self-test on GitHub after every push and pull request. When it fails, GitHub emails
+# whoever pushed (and the repository owner), so a broken change is noticed before anyone opens the app.
+# Runs on a fresh machine without data: checks that need companies in the database are skipped.
+name: Self-test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install packages (without the desktop window, not needed for the test)
+        run: |
+          grep -vi pywebview requirements.txt > requirements-ci.txt
+          pip install -r requirements-ci.txt
+      - name: Self-test
+        run: python -m stockterminal.selftest

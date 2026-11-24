@@ -1,0 +1,6 @@
+# Windows batch files need Windows line endings (CRLF), otherwise "goto" can jump to the wrong place
+*.bat text eol=crlf
+# Mac scripts need plain line endings (LF)
+*.command text eol=lf
+# The new design's built files (made by `npm run build` in ui/): keep them out of code reviews
+stockterminal/app/static/new/** linguist-generated

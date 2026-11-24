@@ -1,0 +1,201 @@
+# Builds the installed app: Stock-Terminal-Setup-<version>.exe (Windows) and Stock-Terminal-<version>-mac.zip.
+# Runs by hand (Actions > Build app > Run workflow), for a version tag (v1.0.0) and when the packaging changes.
+# The files appear under the run's "Artifacts". install-test installs the Windows one on a clean PC and loads a company.
+# A version tag also publishes a release in the public download repository (publish), and master / a tag update the
+# download page there (site, from packaging/site).
+# See packaging/ (PyInstaller recipe, launcher, installer script).
+name: Build app
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    tags: ["v*"]
+    paths: ["packaging/**", "requirements.txt", ".github/workflows/build-app.yml", "stockterminal/config.py", "stockterminal/app/__main__.py", "stockterminal/schedule.py", "stockterminal/appupdate.py", "stockterminal/datasetup.py"]
+  pull_request:
+    paths: ["packaging/**", "requirements.txt", ".github/workflows/build-app.yml", "stockterminal/config.py", "stockterminal/app/__main__.py", "stockterminal/schedule.py", "stockterminal/appupdate.py", "stockterminal/datasetup.py"]
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install packages and PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+      - name: Version
+        id: v
+        shell: bash
+        run: echo "version=$(python -c 'import stockterminal; print(stockterminal.__version__)')" >> "$GITHUB_OUTPUT"
+      - name: Build the program (PyInstaller)
+        run: pyinstaller packaging/stock-terminal.spec --noconfirm
+      - name: Smoke test (server of the built program answers)
+        shell: pwsh
+        run: |
+          $env:STOCKTERMINAL_DATA = "$env:RUNNER_TEMP\st-data"
+          $p = Start-Process -FilePath "dist\Stock Terminal\stockterminal-run.exe" -ArgumentList "stockterminal.app","--serve","--port","8799" -PassThru
+          $ok = $false
+          for ($i = 0; $i -lt 60; $i++) {
+            Start-Sleep -Seconds 2
+            try { $r = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8799/api/about; Write-Host $r.Content; $ok = $true; break } catch {}
+          }
+          if (-not $ok) { Stop-Process -Id $p.Id -Force; throw "the built program did not answer" }
+          $page = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8799/
+          if ($page.Content -notmatch "static/new") { throw "the screen is missing from the built program" }
+          Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8799/api/settings | Out-Null
+          Stop-Process -Id $p.Id -Force
+      - name: Installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          & $iscc "/DAppVersion=${{ steps.v.outputs.version }}" packaging\installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Stock-Terminal-Setup-${{ steps.v.outputs.version }}
+          path: dist/Stock-Terminal-Setup-*.exe
+          if-no-files-found: error
+
+  mac:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install packages and PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+      - name: Version
+        id: v
+        run: echo "version=$(python -c 'import stockterminal; print(stockterminal.__version__)')" >> "$GITHUB_OUTPUT"
+      - name: Build the app (PyInstaller)
+        run: pyinstaller packaging/stock-terminal.spec --noconfirm
+      - name: Smoke test (server of the built app answers)
+        run: |
+          export STOCKTERMINAL_DATA="$RUNNER_TEMP/st-data"
+          "dist/Stock Terminal.app/Contents/MacOS/stockterminal-run" stockterminal.app --serve --port 8799 &
+          for i in $(seq 1 60); do sleep 2; curl -sf http://127.0.0.1:8799/api/about && break; done
+          curl -sf http://127.0.0.1:8799/ | grep -q static/new
+          kill %1
+      - name: Zip
+        run: ditto -c -k --keepParent "dist/Stock Terminal.app" "dist/Stock-Terminal-${{ steps.v.outputs.version }}-mac.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Stock-Terminal-${{ steps.v.outputs.version }}-mac
+          path: dist/Stock-Terminal-*-mac.zip
+          if-no-files-found: error
+
+  # A version tag (v1.0.0, v1.0.0-rc1) publishes the installer and Mac zip as a release in the public download
+  # repository, where installed apps look for updates (stockterminal/appupdate.py, RELEASES_REPO). Needs the secret
+  # RELEASES_TOKEN: a fine-grained token with "Contents: read and write" on that repository only.
+  install-test:
+    # A clean Windows PC: install like a stranger would (no Python, no git), start, find and load a company, uninstall.
+    needs: windows
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: Stock-Terminal-Setup-*
+          merge-multiple: true
+      - name: Install, start, load a company, uninstall
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem Stock-Terminal-Setup-*.exe | Select-Object -First 1
+          $env:Path = "C:\Windows\System32;C:\Windows;C:\Windows\System32\WindowsPowerShell\v1.0"   # no Python, no git
+          # WaitForExit, not -Wait: -Wait also waits for the app the installer opens at the end, which never closes
+          $p = Start-Process $setup.FullName -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -PassThru
+          if (-not $p.WaitForExit(300000)) { throw "the installer did not finish in 5 minutes" }
+          if ($p.ExitCode -ne 0) { throw "installer exit code $($p.ExitCode)" }
+          Write-Host "installed"
+          Start-Sleep 5
+          $app = "$env:LOCALAPPDATA\Programs\Stock Terminal"
+          if (-not (Test-Path "$app\Stock Terminal.exe")) { throw "not installed in $app" }
+          Get-Process "Stock Terminal" -ErrorAction SilentlyContinue | Stop-Process -Force   # the installer may open it
+          $data = "$env:LOCALAPPDATA\Stock Terminal\data"
+          Remove-Item -Recurse -Force $data -ErrorAction SilentlyContinue                    # a fresh PC: no data yet
+          $srv = Start-Process "$app\stockterminal-run.exe" -ArgumentList "stockterminal.app","--serve","--port","8798" -PassThru
+          $base = "http://127.0.0.1:8798"
+          for ($i = 0; $i -lt 60; $i++) { Start-Sleep 2; try { $about = Invoke-RestMethod "$base/api/about"; break } catch {} }
+          if (-not $about) { throw "the installed app did not start" }
+          Write-Host "version $($about.version)"
+          $setup = Invoke-RestMethod "$base/api/data/setup"
+          Write-Host "companies $($setup.companies), starter pack: $($setup.pack.name)"
+          Invoke-RestMethod -Method Put "$base/api/settings" -ContentType "application/json" -Body '{"sec_email":"stock-terminal-test@example.com"}' | Out-Null
+          $hit = $null
+          for ($i = 0; $i -lt 30 -and -not $hit; $i++) { Start-Sleep 2; $hit = (Invoke-RestMethod "$base/api/find?q=nvidia") | Where-Object ticker -eq "NVDA" }
+          if (-not $hit) { throw "search does not find NVIDIA on a fresh install" }
+          Invoke-RestMethod -Method Post "$base/api/load/MSFT" | Out-Null
+          for ($i = 0; $i -lt 90; $i++) { Start-Sleep 4; $job = Invoke-RestMethod "$base/api/job/MSFT"; if ($job.state -ne "running") { break } }
+          $job.lines | Select-Object -Last 15 | ForEach-Object { Write-Host "  $_" }
+          if ($job.state -ne "done") { throw "loading MSFT: $($job.state)" }
+          $info = Invoke-RestMethod "$base/api/company/MSFT"
+          if (-not $info.has_financials) { throw "MSFT loaded without financials" }
+          Write-Host "MSFT revenue TTM: $($info.ttm.revenue)"
+          Invoke-RestMethod "$base/api/report" | Out-Null
+          Stop-Process -Id $srv.Id -Force
+          Start-Sleep 2
+          $p = Start-Process "$app\unins000.exe" -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES" -PassThru
+          $p.WaitForExit(120000) | Out-Null
+          for ($i = 0; $i -lt 30 -and (Test-Path "$app\Stock Terminal.exe"); $i++) { Start-Sleep 2 }   # it finishes from a copy of itself
+          if (Test-Path "$app\Stock Terminal.exe") { throw "uninstall left the program behind" }
+          if (-not (Test-Path "$data\terminal.db")) { throw "uninstall removed the user's data" }
+          Write-Host "install, first start, search, load, uninstall: all ok"
+
+  site:
+    # The download page (packaging/site) goes to the public download repository: GitHub Pages shows its index.html.
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Copy the download page
+        env:
+          TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          git clone --depth 1 "https://x-access-token:${TOKEN}@github.com/nielstroep5-creator/stock-terminal-releases.git" site-repo
+          cp packaging/site/* site-repo/
+          cd site-repo
+          git add -A
+          if git diff --cached --quiet; then echo "download page unchanged"; exit 0; fi
+          git -c user.name="Stock Terminal build" -c user.email="actions@users.noreply.github.com" commit -m "Download page from the app's build"
+          git push
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, mac, install-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-files
+          merge-multiple: true
+      - name: Check the tag matches the app version
+        id: v
+        run: |
+          version=$(python3 -c 'import stockterminal; print(stockterminal.__version__)')
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$version" != "$tag" ]; then echo "tag $tag but stockterminal/__init__.py says $version"; exit 1; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Release notes from CHANGELOG.md
+        run: |
+          base="${{ steps.v.outputs.version }}"; base="${base%%-*}"
+          awk -v v="$base" '$0 ~ "^## "v"( |$)" {on=1; next} /^## / {if (on) exit} on' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "Stock Terminal ${{ steps.v.outputs.version }}" > notes.md
+      - name: Publish to the download repository
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          v="${{ steps.v.outputs.version }}"
+          pre=""; case "$v" in *-*) pre="--prerelease";; esac
+          gh release create "v$v" release-files/* --repo nielstroep5-creator/stock-terminal-releases \
+            --title "Stock Terminal $v" --notes-file notes.md $pre

@@ -1,0 +1,49 @@
+#!/bin/sh
+# Runs before every `git push` (switched on by `git config core.hooksPath .githooks`,
+# which "Start Stock Terminal.bat" sets by itself). Blocks the push when:
+#   1. a pushed commit adds personal data: the data/ folder, a database, settings, logs, an email address
+#   2. the self-test fails (python -m stockterminal.selftest, same as "Run self-test.bat")
+cd "$(git rev-parse --show-toplevel)" || exit 1
+zero=0000000000000000000000000000000000000000
+problems=""
+
+while read -r lref lsha rref rsha; do
+  [ "$lsha" = "$zero" ] && continue                      # deleting a branch
+  if [ "$rsha" = "$zero" ] || ! git cat-file -e "$rsha" 2>/dev/null; then
+    range="$lsha --not --remotes"
+  else
+    range="$rsha..$lsha"
+  fi
+  files=$(git log --format= --name-only --diff-filter=AM $range | sort -u)
+  bad=$(printf '%s\n' "$files" | grep -Ei '(^|/)data/|\.(db|db-wal|db-shm|sqlite|sqlite3|log|zip)$|(^|/)settings\.json$|(^|/)sec_contact\.txt$')
+  [ -n "$bad" ] && problems="$problems
+Personal data or data files in the push:
+$bad"
+  mails=$(git log -p --format= $range | grep '^+' | grep -v '^+++' | sed 's/^+//' \
+          | grep -Eo '[A-Za-z0-9][A-Za-z0-9._%+-]*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}' \
+          | grep -Eiv '@(example\.(com|org)|users\.noreply\.github\.com)$' | sort -u)
+  [ -n "$mails" ] && problems="$problems
+Email addresses added in the code:
+$mails"
+done
+
+if [ -n "$problems" ]; then
+  echo "PUSH BLOCKED:$problems"
+  echo "Remove these from the commits (data and emails stay on your own PC) and push again."
+  exit 1
+fi
+
+for py in .venv/Scripts/python.exe .venv/bin/python python3 python; do
+  if [ -x "$py" ] || command -v "$py" >/dev/null 2>&1; then
+    if ! "$py" -c "import fastapi, uvicorn, requests" >/dev/null 2>&1; then
+      echo "WARNING: the self-test cannot run here (packages from requirements.txt missing). Pushing anyway;"
+      echo "GitHub runs it after the push, and each PC runs it after downloading and goes back if it fails."
+      exit 0
+    fi
+    if "$py" -m stockterminal.selftest; then exit 0; fi
+    echo "PUSH BLOCKED: the self-test failed. Fix it and push again."
+    exit 1
+  fi
+done
+echo "WARNING: no Python found, self-test skipped."
+exit 0

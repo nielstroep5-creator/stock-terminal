@@ -1,0 +1,15 @@
+.venv/
+data/
+__pycache__/
+*.pyc
+sec_contact.txt
+stock-terminal-data*.zip
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+settings.json
+
+# PyInstaller output (the installed app is built by .github/workflows/build-app.yml)
+/build/
+/dist/

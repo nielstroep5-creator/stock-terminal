@@ -1,0 +1,190 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '@fontsource-variable/inter';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* One set of colours for the whole app. Light is the default; dark overrides the same names. */
+:root {
+  --background: #ffffff;
+  --foreground: #17181c;
+  --panel: #fafafa;
+  --logo-tile: #111114;            /* dark app-icon tile behind logos, the same in both themes */
+  --card: #ffffff;
+  --card-foreground: #17181c;
+  --popover: #ffffff;
+  --popover-foreground: #17181c;
+  --primary: #2456d6;
+  --primary-foreground: #ffffff;
+  --secondary: #f2f3f5;
+  --secondary-foreground: #17181c;
+  --muted: #f2f3f5;
+  --muted-foreground: #5f6470;
+  --accent: #eaf0fe;
+  --accent-foreground: #2456d6;
+  --border: #e6e7ea;
+  --input: #e6e7ea;
+  --ring: #2456d6;
+  --up: #127a3e;
+  --up-bg: #e7f5ec;
+  --down: #b3261e;
+  --down-bg: #fbeaea;
+  --series-1: #2456d6;
+  --series-2: #c2590a;
+  --series-3: #6d3fd6;
+  --series-4: #0b7f74;
+  --series-5: #b0277a;
+  --series-6: #5f6470;
+  --flag: #c2590a;
+  --r-sb: #0f6b3a;
+  --r-b: #3fa66b;
+  --r-h: #b58a1a;
+  --r-s: #d9703a;
+  --r-ss: #b3261e;
+  --radius: 0.625rem;
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --background: #0d0e11;
+  --foreground: #ececef;
+  --panel: #111216;
+  --card: #15171b;
+  --card-foreground: #ececef;
+  --popover: #181a1f;
+  --popover-foreground: #ececef;
+  --primary: #7da2ff;
+  --primary-foreground: #0d0e11;
+  --secondary: #1d2025;
+  --secondary-foreground: #ececef;
+  --muted: #1d2025;
+  --muted-foreground: #a3a7b0;
+  --accent: #1a2542;
+  --accent-foreground: #7da2ff;
+  --border: #272a30;
+  --input: #272a30;
+  --ring: #7da2ff;
+  --up: #4cc27a;
+  --up-bg: #12281b;
+  --down: #f0827a;
+  --down-bg: #321715;
+  --series-1: #5f86e8; /* calmer than the primary blue for big bar areas on black */
+  --series-2: #f0a35e;
+  --series-3: #b79bff;
+  --series-4: #4fd1c5;
+  --series-5: #f08cc4;
+  --series-6: #a3a7b0;
+  --flag: #f0a35e;
+  --r-sb: #2f9e62;
+  --r-b: #62c48c;
+  --r-h: #d4ad3d;
+  --r-s: #ee9058;
+  --r-ss: #e0625a;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: 'Inter Variable', system-ui, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-panel: var(--panel);
+  --color-logo-tile: var(--logo-tile);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-up: var(--up);
+  --color-up-bg: var(--up-bg);
+  --color-down: var(--down);
+  --color-down-bg: var(--down-bg);
+  --color-flag: var(--flag);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 2px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans text-sm antialiased;
+  }
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Data tables: numbers right-aligned in the same digit width, quiet lines, first column stays in view. */
+.tbl {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+.tbl th,
+.tbl td {
+  padding: 7px 12px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+.tbl th {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+.tbl th:first-child,
+.tbl td:first-child {
+  text-align: left;
+}
+.tbl tbody tr:last-child td {
+  border-bottom: 0;
+}
+.tbl tbody tr:hover td {
+  background: var(--panel);
+}
+.tbl.sticky-first th:first-child,
+.tbl.sticky-first td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--card);
+}
+.tbl.sticky-first tbody tr.hit td:first-child {
+  background: color-mix(in srgb, var(--up-bg) 60%, var(--card));
+}
+.tbl.sticky-first tbody tr:hover td:first-child {
+  background: var(--panel);
+}
+.tbl.tight th,
+.tbl.tight td {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.tbl.tight th:first-child,
+.tbl.tight td:first-child {
+  padding-left: 12px;
+}
+.tbl.left-2-4 th:nth-child(-n + 4),
+.tbl.left-2-4 td:nth-child(-n + 4) {
+  text-align: left;
+}
