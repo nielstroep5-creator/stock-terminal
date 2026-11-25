@@ -410,7 +410,7 @@ export function HomePage() {
         </Section>
       </div>
 
-      <Section title="Biggest moves" side={<span className="text-muted-foreground">Your companies, {moveDay}</span>}>
+      <Section title="Biggest moves" side={<span className="text-muted-foreground">All companies in the app, {moveDay}</span>}>
         {movers ? (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <MoverList title="Top gainers" rows={movers.up} />

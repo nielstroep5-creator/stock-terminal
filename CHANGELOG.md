@@ -23,6 +23,10 @@ Settings > About. Versions: 1.0.1 = fixes, 1.1.0 = new features.
 - Company names in capitals with a few small letters ("COCA-COLA EUROPACIFIC PARTNERS plc") are written
   normally, and "of", "and", "the" stay small ("Bank of America").
 - No more red errors in the browser console for companies without a logo.
+- The update pop-up of a copy made with git lists the new release notes instead of the programmers' commit titles.
+- Negative numbers use a real minus sign (−1.2B), the stock page says "Net debt 12.3B" instead of "Net cash -12.3B",
+  and growth numbers, ratings and the Compare analyst rows show one decimal instead of two.
+- Home: "Biggest moves" says it covers all companies in the app (not only yours).
 - The code is now open source: github.com/nielstroep5-creator/stock-terminal (MIT licence).
 
 ## 1.1.0 (2026-11-25)

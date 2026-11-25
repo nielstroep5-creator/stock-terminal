@@ -523,7 +523,7 @@ function EtfHoldings({ t }: { t: string }) {
         {stat('Asset class', assetTop ? (assetTop[0] === 'Stocks' ? 'Equity' : assetTop[0]) : '–')}
         {stat('Category', d.category || '–')}
         {stat('Assets', d.total_assets ? '$' + big(d.total_assets) : '–')}
-        {stat('P/E', has(d.pe) ? d.pe.toFixed(2) : '–')}
+        {stat('P/E', has(d.pe) ? d.pe.toFixed(1) : '–')}
       </Card>
       <Card className="p-4">
         <H2 side={<Segmented label="Breakdown by" value={bd} onChange={(v) => setPref('state', 'etfBd', v)} options={[{ value: 'sectors', label: 'Sectors' }, { value: 'assets', label: 'Asset class' }, { value: 'countries', label: 'Country' }]} />}>Breakdown</H2>

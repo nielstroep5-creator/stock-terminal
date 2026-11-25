@@ -240,6 +240,11 @@ function KeyNumbers({ info }: { info: CompanyInfo }) {
   const b = info.balance ?? {}
   const a = info.analyst
   const col = (x: number | null | undefined, text: string) => <span className={tone(x)}>{text}</span>
+  // more cash than debt: "Net cash" in green; more debt: "Net debt" with the amount (no minus sign to puzzle over)
+  const netCash = (x: number | null | undefined): Stat =>
+    x === undefined || x === null
+      ? ['Net cash', '–']
+      : [<Hint key="n" label="Cash and short-term investments minus all debt."><span className="underline decoration-dotted underline-offset-2">{x >= 0 ? 'Net cash' : 'Net debt'}</span></Hint>, <span className={x >= 0 ? 'text-up' : ''}>{big(Math.abs(x))}</span>]
   const warn = mcapWarnText(info.mcap_check ?? null)
   const mcap: Stat = [
     'Market cap',
@@ -292,7 +297,7 @@ function KeyNumbers({ info }: { info: CompanyInfo }) {
       ['Valuation', [mcap, ['Enterprise value', v.enterprise_value ? big(v.enterprise_value) : '–'], ['P/E (TTM)', fmt(v.pe_ttm, 'x')], ...fwd, ['P/S (TTM)', fmt(v.ps_ttm, 'x')], ['P/FCF (TTM)', fmt(v.pfcf_ttm, 'x')], ['EV/EBITDA', fmt(v.ev_ebitda_ttm, 'x')], ['P/B', fmt(v.pb, 'x')]]],
       ['Profitability', [['Revenue (TTM)', ttm.revenue ? big(ttm.revenue) : '–'], ...common, ['Free cash flow (TTM)', ttm.fcf ? big(ttm.fcf) : '–'], ['Gross margin', fmt(m.gross_margin, 'pct')], ['Operating margin', fmt(m.operating_margin, 'pct')], ['ROIC', fmt(m.roic, 'pct')]]],
       ['Growth', [revGrowth, ['EPS growth (TTM)', col(m.eps_diluted_yoy, fmt(m.eps_diluted_yoy, 'pct'))], ...estGrowth]],
-      ['Balance and dividend', [['Net cash', m.net_cash !== undefined && m.net_cash !== null ? big(m.net_cash) : '–'], divYield, beta]],
+      ['Balance and dividend', [netCash(m.net_cash), divYield, beta]],
     ]
   }
 

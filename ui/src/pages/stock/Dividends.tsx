@@ -188,7 +188,7 @@ export function Dividends({ t }: { t: string }) {
         ...o,
         xAxis: { ...o.xAxis, type: 'category', data: py.map((y) => `FY${y.fy}`) },
         yAxis: { ...o.yAxis, scale: false, axisLabel: { ...o.yAxis.axisLabel, formatter: (x: number) => x + '%' } },
-        tooltip: { ...o.tooltip, ...BAR_TIP, formatter: axisTip(c, (_, x) => (x >= 300 ? '300%+' : x.toFixed(2) + '%')) },
+        tooltip: { ...o.tooltip, ...BAR_TIP, formatter: axisTip(c, (_, x) => (x >= 300 ? '300%+' : x.toFixed(1) + '%')) },
         series: [
           { type: 'bar', name: names[0], ...BAR_FIT, ...(fcf ? FOCUS : FOCUS_SELF), data: py.map((y) => cap(reit ? y.ffo_payout : y.payout)), itemStyle: { color: c.series[0], borderRadius: [3, 3, 0, 0] } },
           ...(fcf ? [{ type: 'bar', name: names[1], ...BAR_FIT, ...FOCUS, data: py.map((y) => cap(y.fcf_payout)), itemStyle: { color: c.series[2], borderRadius: [3, 3, 0, 0] } }] : []),

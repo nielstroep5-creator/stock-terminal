@@ -99,7 +99,7 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
           <CommandList>
             {fresh ? <CommandEmpty>Nothing found for "{text}".</CommandEmpty> : <CommandEmpty>Searching…</CommandEmpty>}
             {hits.length > 0 && (fresh || !text.trim()) && (
-              <CommandGroup heading={low ? 'Companies and ETFs' : 'Your companies and ETFs'}>
+              <CommandGroup heading={low ? 'Companies and ETFs' : 'Companies and ETFs in the app'}>
                 {hits.map((h) => (
                   <CommandItem
                     key={h.ticker}

@@ -3,11 +3,13 @@ export type Fmt = 'pct' | 'pct2' | 'x' | 'usdps' | 'usd' | 'shares' | 'num'
 export type Unit = 'M' | 'B'
 
 const DASH = '–'
+const MINUS = '−' // a real minus sign: as wide as a plus, and it doesn't break a line like a hyphen can
 const isNum = (v: unknown): v is number => typeof v === 'number' && !Number.isNaN(v)
 
 /** 5.18T, 478.83B, 12.3M */
 export function big(v: number | null | undefined): string {
   if (!isNum(v)) return DASH
+  if (v < 0) return MINUS + big(-v)
   const a = Math.abs(v)
   if (a >= 1e12) return (v / 1e12).toFixed(2) + 'T'
   if (a >= 1e9) return (v / 1e9).toFixed(a >= 1e11 ? 1 : 2) + 'B'
@@ -17,6 +19,7 @@ export function big(v: number | null | undefined): string {
 
 export function fmt(v: number | null | undefined, f: Fmt | string = 'num', opts: { unit?: Unit; noX?: boolean } = {}): string {
   if (!isNum(v)) return DASH
+  if (v < 0 && !Object.is(v, -0)) return MINUS + fmt(-v, f, opts)
   const a = Math.abs(v)
   switch (f) {
     case 'pct':
