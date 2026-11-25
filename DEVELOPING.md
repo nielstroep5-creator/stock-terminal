@@ -13,8 +13,9 @@ Everything goes into one SQLite file: `data/terminal.db`. Raw SEC JSON is cached
 py -3.12 -m venv .venv
 .venv\Scripts\python -m pip install -r requirements.txt
 ```
-SEC requires a contact email in requests. The app asks for it on first start (Settings, gear
-icon top right); it is saved in `data/settings.json` with your other settings (not committed to git).
+(macOS / Linux: `python3.12 -m venv .venv` and `.venv/bin/python -m pip install -r requirements.txt`.)
+SEC requires a contact email in requests. The app asks for it on first start (and under
+Settings in the left sidebar); it is saved in `data/settings.json` with your other settings (not committed to git).
 
 **Skip the long first download:** put a starter pack (`stock-terminal-data-*.zip`, ~360 MB, made with
 `python -m stockterminal.starter export`) in this folder before the first start. The app unpacks it by
@@ -145,6 +146,15 @@ and see every stock's limits in **Your stocks**. Quiet hours hold phone messages
 per day, except price limits and results. Rules are kept in your own `data/settings.json` (prefs `alerts`, per stock `alerts_stock`
 keyed by ticker); fired alerts in `pf_alerts` (`stockterminal/alerts.py`).
 
+## Releasing (Niels decides when)
+1. On `master`: set `__version__` in `stockterminal/__init__.py` to the final number (no `-dev`) and give the
+   `CHANGELOG.md` section its date. Push and wait until the self-test on GitHub is green.
+2. Tag **that commit on master** (`git tag v1.2.0 && git push origin v1.2.0`), never the download-page commit
+   that the build pushes. The build checks that the tagged commit has the app and that the tag matches
+   `__version__`, then publishes the release with the notes from `CHANGELOG.md` and an install footer.
+3. A test version is `v1.2.0-rc1` with `__version__ = "1.2.0-rc1"`: it becomes a pre-release.
+4. Afterwards set `__version__` to the next `-dev` number.
+
 ## Code layout
 - `stockterminal/config.py` – paths and settings
 - `stockterminal/db.py` – database schema and helpers
@@ -159,5 +169,5 @@ keyed by ticker); fired alerts in `pf_alerts` (`stockterminal/alerts.py`).
 - `stockterminal/check.py` – verification report
 - `stockterminal/filings.py` – per-filing XBRL (segments, company-specific tags)
 - `stockterminal/segments.py` – standardized segment / product / geography data
-- `stockterminal/app/` – desktop app (server.py = local API, static/new/ = built new design, static/ = old screen)
+- `stockterminal/app/` – desktop app (server.py = local API, static/new/ = the built screen from ui/)
 - `ui/` – source of the new design (`DESIGN.md` = how to build in it, `FEATURES.md` = what moved over)

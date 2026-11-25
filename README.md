@@ -65,7 +65,19 @@ py -3.12 -m venv .venv
 .venv\Scripts\python -m pip install -r requirements.txt
 ```
 
-and double-click **Start Stock Terminal.bat** (macOS: `Start Stock Terminal.command`). A copy made this way
+and double-click **Start Stock Terminal.bat**.
+
+macOS or Linux: install Python 3.12 and Git, then
+
+```
+git clone https://github.com/nielstroep5-creator/stock-terminal.git
+cd stock-terminal
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+and double-click **Start Stock Terminal.command** (macOS), or run `.venv/bin/python -m stockterminal.app --serve`
+and open http://127.0.0.1:8765 in a browser (Linux). A copy made this way
 follows the newest development code; the installer only gets finished releases.
 How the code is organised: [DEVELOPING.md](DEVELOPING.md).
 
