@@ -16,6 +16,7 @@ import { useSettings } from '@/lib/settings'
 import { cn } from '@/lib/utils'
 import type { CompanyRow } from '@/lib/api'
 import { Logo } from '@/components/app/Logo'
+import { DataSetupBody, useDataSetup } from '@/components/app/DataSetup'
 import { EXT_ICON, EXT_LABEL, EXT_TINT, ExtendedPrice } from '@/components/app/ExtendedPrice'
 import type { Ext } from '@/components/app/ExtendedPrice'
 
@@ -138,9 +139,11 @@ function MoverList({ title, rows }: { title: string; rows: CompanyRow[] }) {
   )
 }
 
-/** A new install has no companies yet: load a first set from here (the same job as "Load S&P 500.bat"). */
+/** A new install has no companies yet: the starter pack (a few minutes) first, the same choices as the pop-up after the
+    welcome screen; loading from the SEC company by company stays as the slow way (the same job as "Load S&P 500.bat"). */
 function GetStarted() {
   const [name, setName] = useState<string | null>(null)
+  const setup = useDataSetup()
   const job = useQuery({
     queryKey: ['load-index', name],
     queryFn: () => api.get<IndexJob>(`/api/load-index/${name}`),
@@ -158,7 +161,7 @@ function GetStarted() {
         <span className="flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground"><Download className="size-[18px]" /></span>
         <div>
           <h2 className="text-[15px] font-semibold">Get started</h2>
-          <p className="text-muted-foreground">Your database is empty. Load a first set of companies; you can keep using the app while it runs.</p>
+          <p className="text-muted-foreground">The app has no companies yet. The quickest way: the S&amp;P 500 in one download.</p>
         </div>
       </div>
       {j ? (
@@ -172,10 +175,14 @@ function GetStarted() {
           </span>
         </div>
       ) : (
-        <div className="flex flex-wrap gap-2">
-          <Button variant="default" onClick={() => void start('popular')}>Load 30 popular companies (a few minutes)</Button>
-          <Button onClick={() => void start('sp500')}>Load the S&P 500 (several hours)</Button>
-        </div>
+        <>
+          {setup.data && <div className="max-w-2xl"><DataSetupBody info={setup.data} /></div>}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-3 text-xs text-muted-foreground">
+            <span>Other ways, straight from the SEC (slower, works without the download page):</span>
+            <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => void start('popular')}>30 popular companies (a few minutes)</Button>
+            <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => void start('sp500')}>the S&amp;P 500 one by one (several hours)</Button>
+          </div>
+        </>
       )}
     </Card>
   )

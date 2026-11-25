@@ -48,6 +48,14 @@ def _companies(path=DB_PATH):
         return 0
 
 
+def pack_date(name):
+    """The day the data in a starter pack is from, out of its name (stock-terminal-data-2026-11-14.zip), or None.
+    The upload date says nothing about how old the numbers are."""
+    import re
+    m = re.search(r"(\d{4}-\d{2}-\d{2})", name or "")
+    return m.group(1) if m else None
+
+
 def latest_pack():
     """The newest starter pack on the download page (a release asset named stock-terminal-data-*.zip), or None.
     {name, size, url, date}. Cached an hour."""
@@ -61,7 +69,7 @@ def latest_pack():
     with urllib.request.urlopen(req, timeout=15) as r:
         releases = json.load(r)
     packs = [dict(name=a["name"], size=a.get("size") or 0, url=a["browser_download_url"],
-                  date=(a.get("updated_at") or rel.get("published_at") or "")[:10])
+                  date=pack_date(a["name"]) or (a.get("updated_at") or rel.get("published_at") or "")[:10])
              for rel in releases if not rel.get("draft")
              for a in rel.get("assets") or []
              if a.get("name", "").startswith(PACK_PREFIX) and a["name"].endswith(".zip")]
