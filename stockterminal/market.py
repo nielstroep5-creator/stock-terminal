@@ -14,6 +14,7 @@ RANGES = {"1D": ("1d", "5m", 120), "5D": ("5d", "30m", 300), "1M": ("1mo", "1d",
 
 _cache = {}
 _lock = threading.Lock()
+_down = {"until": 0.0}   # after a failed download the other indexes don't try either for a minute (offline: no 3 s wait)
 
 
 def _history(symbol, rng):
@@ -23,6 +24,8 @@ def _history(symbol, rng):
         hit = _cache.get(key)
     if hit and time.time() - hit[0] < ttl:
         return hit[1]
+    if time.time() < _down["until"]:
+        return None
     try:
         import yfinance as yf
         h = yf.Ticker(symbol).history(period=period, interval=interval, auto_adjust=False)
@@ -30,8 +33,12 @@ def _history(symbol, rng):
         intraday = interval.endswith("m")
         pts = dict(t=[int(ts.timestamp()) for ts in h.index] if intraday else [ts.strftime("%Y-%m-%d") for ts in h.index],
                    close=[round(float(v), 2) for v in h["Close"]])
+        if len(pts["close"]) < 2:              # Yahoo answered with nothing: same as no answer
+            pts = None
     except Exception:
         pts = None
+    if pts is None:
+        _down["until"] = time.time() + 60
     with _lock:
         # a failed download is retried after 20 seconds instead of the full cache time
         _cache[key] = (time.time() if pts else time.time() - ttl + 20, pts)

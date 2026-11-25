@@ -44,13 +44,26 @@ def _throttle():
         time.sleep(slot - now)
 
 
+_offline = {"until": 0.0}      # no connection at all: other requests fail at once for half a minute
+
+
 def _get(url: str):
-    """GET with rate limiting (shared by all threads) and retries on throttling / network errors."""
+    """GET with rate limiting (shared by all threads) and retries on throttling / network errors.
+    Without any connection it gives up after three tries and the next requests fail at once for 30 seconds,
+    so an offline page (Ownership) answers in a few seconds instead of 16."""
+    if time.time() < _offline["until"]:
+        raise RuntimeError(f"No connection to the SEC (offline?): {url}")
     resp = None
     for attempt in range(5):
         _throttle()
         try:
             resp = _session.get(url, timeout=120, headers={"User-Agent": sec_user_agent()})
+        except requests.ConnectionError:
+            if attempt >= 2:
+                _offline["until"] = time.time() + 30
+                raise
+            time.sleep(2 ** attempt)
+            continue
         except requests.RequestException:
             if attempt == 4:
                 raise
@@ -63,7 +76,7 @@ def _get(url: str):
             continue
         break
     if resp is not None and resp.status_code == 403:
-        raise RuntimeError(f"SEC refused the request (403). Enter your email in Settings (gear icon, top right): {url}")
+        raise RuntimeError(f"SEC refused the request (403). Enter your email in Settings (left sidebar), Data and accounts: {url}")
     resp.raise_for_status()
     raise RuntimeError(f"SEC request failed: {url}")
 

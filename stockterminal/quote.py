@@ -111,6 +111,8 @@ def get_quotes(tickers, refresh=False):
     now = time.time()
     with _lock:
         need = [t for t in tickers if refresh or t not in _cache or now - _cache[t][0] > TTL]
+    if need and _health["fail"] > _health["ok"] and now - _health["fail"] < 20:
+        need = []                                  # Yahoo gave nothing seconds ago (offline): don't wait again
     if need:
         syms = {t: yahoo_symbol(t) for t in need}
         plain = _fetch_many(list(syms.values()), False)
