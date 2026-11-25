@@ -398,6 +398,15 @@ def own_trades():
                                              "20/04/2024;AAPL;Verkoop;1;180;USD;\n")
         assert order == "dmy" and [(x["date"], x["side"], x["quantity"], x["price"], x["fees"]) for x in rows] == \
             [("2024-03-15", "BUY", 3, 1234.5, 0.5), ("2024-04-20", "SELL", 1, 180, None)] and len(skipped) == 1, (rows, skipped)
+        assert own.parse_csv("Date,Ticker,Side,Quantity,Price\n2024-03-15,AAPL,buy,3,100\n")[2] == "ymd"
+        assert own._looks_like_name("APPLE INC") and not own._looks_like_name("AAPL")
+        # offline: the app's own (split-adjusted) closes become the prices as traded, with the split on its day
+        conn.executemany("INSERT INTO prices (ticker, date, close, adj_close) VALUES (?,?,?,?)",
+                         [("ZZZ", "2024-06-07", 12.0, 12.0), ("ZZZ", "2024-06-10", 12.5, 12.5)])
+        conn.execute("INSERT INTO splits VALUES ('ZZZ', '2024-06-08', 10)")
+        own._stored_prices(conn, ["ZZZ"], "2024-06-07")
+        got = conn.execute("SELECT date, close, split FROM pf_prices WHERE symbol='ZZZ' ORDER BY date").fetchall()
+        assert got == [("2024-06-07", 120.0, None), ("2024-06-10", 12.5, 10.0)], got
         res = own.import_csv(conn, own.EXAMPLE_CSV, download=download,
                              quotes=lambda syms: {s: (dict(regularMarketPrice=1, currency=info[s]["currency"], longName=s) if s in info else None) for s in syms})
         again = own.import_csv(conn, own.EXAMPLE_CSV, download=download,
@@ -409,7 +418,7 @@ def own_trades():
         assert not conn.execute("SELECT 1 FROM pf_positions").fetchone() and "source" not in trading212.meta(conn), "empty again"
     finally:
         trading212.status = real_status
-    return "split, average cost, euro share, dividends, box 3 in euros, CSV import (twice), empty again ok"
+    return "split, average cost, euro share, dividends, box 3 in euros, CSV import (twice), offline prices, empty again ok"
 
 
 def news_items():

@@ -5,6 +5,13 @@ Settings > About. Versions: 1.0.1 = fixes, 1.1.0 = new features.
 
 ## 1.2.0 (coming)
 
+- First start: one pop-up at a time (the data download comes before the update question), the Home page offers
+  the S&P 500 download right there, the starter pack shows the date of its numbers, and the folder example fits
+  your computer (Windows or Mac).
+- Your own trades work offline for US shares already in the app: adding one, its price on the day and the
+  portfolio value come from the app's own daily prices (split-aware) until Yahoo answers again.
+- Importing a broker file (DEGIRO) with the company name in the ticker column now finds the share by its ISIN,
+  and a file with 2024-03-15 style dates says "year-month-day" instead of a code.
 - Settings in a small window: the section links sit in a row above the settings instead of lying on top of them.
 - The code is now open source: github.com/nielstroep5-creator/stock-terminal (MIT licence).
 
