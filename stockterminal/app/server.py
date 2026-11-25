@@ -1459,6 +1459,28 @@ def app_restart():
 pick_path = None      # set by app/__main__.py: opens the window's own folder / file chooser
 
 
+_fresh = {"at": 0.0, "prices": None, "filings": None}
+
+
+@app.get("/api/data/status")
+def data_status():
+    """Top bar: how fresh the numbers are (newest stored daily close, Yahoo live or offline) and the progress
+    of a ratio recalculation that runs in the background after a starter pack or an app update."""
+    from .. import metrics
+    if time.time() - _fresh["at"] > 300:                   # the two dates change once a day: asked again every 5 min
+        conn = db.connect()
+        try:
+            _fresh["prices"] = conn.execute("SELECT MAX(date) FROM prices WHERE ticker IN ('SPY','AAPL','MSFT')").fetchone()[0] \
+                or conn.execute("SELECT MAX(date) FROM prices").fetchone()[0]
+            _fresh["filings"] = conn.execute("SELECT MAX(filed) FROM financials").fetchone()[0]
+            _fresh["at"] = time.time()
+        finally:
+            conn.close()
+    r = metrics.RECALC
+    return dict(prices_date=_fresh["prices"], filings_date=_fresh["filings"], quotes=quote.status(),
+                recalc=dict(done=r["done"], total=r["total"]) if r["total"] else None)
+
+
 @app.get("/api/data/setup")
 def data_setup_status():
     """Settings > Data and accounts / welcome screen: companies here, the starter pack on the download page,

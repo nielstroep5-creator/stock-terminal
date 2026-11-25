@@ -175,6 +175,9 @@ def compute_for(w, ptype, w_orig=None, w_prior=None):
 METRICS_VERSION = 2
 
 
+RECALC = {"done": 0, "total": 0}     # progress of recalc_if_outdated, shown in the top bar while it runs
+
+
 def recalc_if_outdated(say=print):
     """Ratios made by older code (stored version below METRICS_VERSION): recalculate them for every company,
     from the stored financials (no download, also works for starter-pack companies). Takes a few minutes."""
@@ -193,7 +196,9 @@ def recalc_if_outdated(say=print):
             return 0
         say(f"Ratios made by an older version: recalculating {len(cos)} companies")
         n = 0
+        RECALC.update(done=0, total=len(cos))
         for cik, t in cos:
+            RECALC["done"] += 1
             try:
                 compute_metrics(conn, cik)
                 compute_valuation(conn, cik, t)
@@ -206,6 +211,7 @@ def recalc_if_outdated(say=print):
         db.log(conn, None, "metrics_upgrade", "ok", n, f"ratios recalculated (version {METRICS_VERSION})")
         return n
     finally:
+        RECALC.update(done=0, total=0)
         conn.close()
 
 

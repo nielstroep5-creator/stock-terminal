@@ -15,6 +15,13 @@ SESSIONS = {"PRE": "pre", "PREPRE": "pre", "POST": "post", "POSTPOST": "post", "
 _cache = {}         # ticker -> (fetched_at, quote or None)
 _lock = threading.Lock()
 _data = None
+_health = {"ok": 0.0, "fail": 0.0}   # when Yahoo last answered / last gave nothing (top bar: live or offline)
+
+
+def status():
+    """'live' when Yahoo answered last time, 'offline' when it gave nothing, 'unknown' before the first try."""
+    ok, fail = _health["ok"], _health["fail"]
+    return "unknown" if not ok and not fail else ("live" if ok >= fail else "offline")
 
 
 def _yf():
@@ -107,6 +114,7 @@ def get_quotes(tickers, refresh=False):
     if need:
         syms = {t: yahoo_symbol(t) for t in need}
         plain = _fetch_many(list(syms.values()), False)
+        _health["ok" if plain else "fail"] = time.time()
         # the overnight call is only needed outside the day sessions (Yahoo reports POSTPOST/PREPRE/CLOSED
         # there without the flag); during pre / regular / post one request is enough
         night = {}
