@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Download, Layers, SlidersHorizontal } from 'lucide-react'
+import { Download, Layers, Shapes, SlidersHorizontal } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -9,6 +9,7 @@ import type { SearchHit } from '@/lib/api'
 import { NAV, SEARCH_PAGES } from '@/lib/nav'
 import { SETTING_INDEX } from '@/pages/Settings'
 import { Logo } from '@/components/app/Logo'
+import { sectorPath } from '@/components/app/IndustryRank'
 
 function useDebounced<T>(value: T, ms: number) {
   const [v, setV] = useState(value)
@@ -47,6 +48,8 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
 
   const low = text.trim().toLowerCase()
   const pages = low ? [...NAV, ...SEARCH_PAGES].filter((n) => `${n.label} ${n.words ?? ''}`.toLowerCase().includes(low)) : NAV
+  const groupNames = useQuery({ queryKey: ['sector-names'], queryFn: () => api.get<{ sector: string; industry: string | null; n: number }[]>('/api/sectors/names'), enabled: open, staleTime: 600_000, retry: false })
+  const groups = low.length >= 3 ? (groupNames.data ?? []).filter((g) => (g.industry ?? g.sector).toLowerCase().includes(low)).slice(0, 4) : []
   const settings = low.length >= 2 ? SETTING_INDEX.filter((s) => s.text.toLowerCase().includes(low)).slice(0, 5) : []
   const go = (to: string) => {
     pendingEnter.current = false
@@ -54,7 +57,7 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
     navigate(to)
   }
   const openHit = (h: SearchHit) => go(h.loaded ? `/${h.etf ? 'etf' : 'stock'}/${h.ticker}` : `/load/${h.ticker}`)
-  const first = fresh && hits.length ? `t-${hits[0].ticker}` : pages.length ? `p-${pages[0].to}` : settings.length ? `s-${settings[0].id}` : ''
+  const first = fresh && hits.length ? `t-${hits[0].ticker}` : pages.length ? `p-${pages[0].to}` : groups.length ? `g-${groups[0].sector}|${groups[0].industry ?? ''}` : settings.length ? `s-${settings[0].id}` : ''
 
   // The first result is highlighted as soon as the results are current, so Enter opens it without the arrow keys.
   useEffect(() => {
@@ -66,6 +69,7 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
       pendingEnter.current = false
       if (hits.length) openHit(hits[0])
       else if (pages.length) go(pages[0].to)
+      else if (groups.length) go(sectorPath(groups[0].sector, groups[0].industry))
       else if (settings.length) go(`/settings?find=${settings[0].id}`)
     }
   })
@@ -128,6 +132,17 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
                   <CommandItem key={p.to} value={`p-${p.to}`} onSelect={() => go(p.to)}>
                     <p.icon />
                     {p.label}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+            {groups.length > 0 && (
+              <CommandGroup heading="Sectors and industries">
+                {groups.map((g) => (
+                  <CommandItem key={`${g.sector}|${g.industry ?? ''}`} value={`g-${g.sector}|${g.industry ?? ''}`} onSelect={() => go(sectorPath(g.sector, g.industry))}>
+                    <Shapes />
+                    <span className="min-w-0 flex-1 truncate">{g.industry ?? g.sector}</span>
+                    <span className="text-xs text-muted-foreground">{g.industry ? `industry in ${g.sector}` : 'sector'} · {g.n}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>

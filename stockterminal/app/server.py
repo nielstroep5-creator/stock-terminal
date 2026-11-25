@@ -1386,6 +1386,12 @@ def sectors_overview():
     return sectors.overview(screener.rows(DB_PATH.stat().st_mtime))
 
 
+@app.get("/api/sectors/names")
+def sectors_names():
+    """Every sector and industry (Ctrl+K finds them)."""
+    return sectors.names(screener.rows(DB_PATH.stat().st_mtime))
+
+
 @app.get("/api/sectors/group")
 def sectors_group(sector: str, industry: str | None = None):
     """One sector (with its industries) or one industry: medians and every company with its ranks."""

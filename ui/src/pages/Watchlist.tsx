@@ -18,6 +18,7 @@ import { big, fmt, niceName, pctSigned, tone } from '@/lib/format'
 import { useSettings } from '@/lib/settings'
 import { useToast } from '@/lib/toast'
 import { cn, rowKeys } from '@/lib/utils'
+import { useStockNote } from '@/components/app/StockNote'
 import { Spark } from '@/pages/Home'
 import { Logo } from '@/components/app/Logo'
 
@@ -188,6 +189,7 @@ function BuyAlert({ t }: { t: string }) {
 function EditCell({ row, k, onSave }: { row: Row; k: 'buy_below' | 'note'; onSave: (value: string) => void }) {
   const [editing, setEditing] = useState(false)
   const cancelled = useRef(false)
+  const [stockNote] = useStockNote(row.ticker)
   if (editing)
     return (
       <input
@@ -200,7 +202,11 @@ function EditCell({ row, k, onSave }: { row: Row; k: 'buy_below' | 'note'; onSav
     )
   const btn = 'cursor-text rounded px-1 py-0.5 -mx-1 hover:bg-secondary'
   if (k === 'note')
-    return <button type="button" title={row.note || undefined} onClick={() => setEditing(true)} className={cn(btn, 'inline-block max-w-40 truncate align-bottom', !row.note && 'text-muted-foreground')}>{row.note || '+ note'}</button>
+    return !row.note && stockNote ? (
+      <button type="button" title={`Your note from the stock page: ${stockNote}\nClick to write a note for this list`} onClick={() => setEditing(true)} className={cn(btn, 'inline-block max-w-40 truncate align-bottom text-muted-foreground italic')}>{stockNote}</button>
+    ) : (
+      <button type="button" title={row.note || undefined} onClick={() => setEditing(true)} className={cn(btn, 'inline-block max-w-40 truncate align-bottom', !row.note && 'text-muted-foreground')}>{row.note || '+ note'}</button>
+    )
   if (!row.buy_below) return <button type="button" onClick={() => setEditing(true)} className={cn(btn, 'text-muted-foreground')}>+ set</button>
   const hit = has(row.to_buy) && row.to_buy <= 0
   return (

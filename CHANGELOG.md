@@ -39,6 +39,11 @@ Settings > About. Versions: 1.0.1 = fixes, 1.1.0 = new features.
   worked out from the stored lines at the next start, so their operating margin and related ratios show.
 - Gross, operating and EBITDA margins above 100% (an incomplete revenue line, mostly REITs) are left blank instead
   of showing an impossible number.
+- Notes per stock: the note button on a stock page keeps your own note (why you own it, what to watch for); it
+  shows under the name, and on the Watchlist where the list has no note of its own.
+- Dividends tab: before the company announces the next dividend, the expected date (the last one plus the usual
+  time between payments) shows under the last ex-dividend date.
+- Search (Ctrl+K) also finds sectors and industries ("semiconductors", "banks").
 - The code is now open source: github.com/nielstroep5-creator/stock-terminal (MIT licence).
 
 ## 1.1.0 (2026-11-25)

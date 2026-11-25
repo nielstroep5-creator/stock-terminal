@@ -65,6 +65,16 @@ function Tile({ label, value, sub, hint, className }: { label: string; value: Re
   )
 }
 
+/** No announced date yet: the last ex-date plus the usual time between payments (quarterly: about 91 days). */
+function expectedNext(d: DividendData): string | null {
+  const n = d.per_year_count
+  if (d.stopped || !d.last_ex || !n || n < 1 || n > 12) return null
+  const t = new Date(d.last_ex.slice(0, 10) + 'T00:00:00')
+  t.setDate(t.getDate() + Math.round(365 / n))
+  if (+t < Date.now() - 7 * 864e5) return null // already overdue: no guess
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
+}
+
 function Tiles({ d }: { d: DividendData }) {
   const g = d.growth ?? {}
   const nx = d.next
@@ -77,7 +87,12 @@ function Tiles({ d }: { d: DividendData }) {
       {nx ? (
         <Tile label="Next ex-dividend" value={day(nx.ex_date)} sub={nx.pay_date ? `Paid ${day(nx.pay_date)}` : `${usd(d.last_amount)} expected`} hint="Buy before this date to receive the dividend. Announced by the company." />
       ) : (
-        <Tile label="Last ex-dividend" value={day(d.last_ex)} sub={d.last_pay ? `Paid ${day(d.last_pay)}` : `${usd(d.last_amount)} per share`} hint="Buy before this date to receive the dividend. The next one appears here once the company announces it." />
+        <Tile
+          label="Last ex-dividend"
+          value={day(d.last_ex)}
+          sub={expectedNext(d) ? `Next expected around ${day(expectedNext(d), false)}` : d.last_pay ? `Paid ${day(d.last_pay)}` : `${usd(d.last_amount)} per share`}
+          hint="Buy before the ex-dividend date to receive the dividend. The expected date is the last one plus the usual time between payments; the real date appears here once the company announces it."
+        />
       )}
       <Tile
         label={reit ? 'Payout ratio (FFO)' : 'Payout ratio'}

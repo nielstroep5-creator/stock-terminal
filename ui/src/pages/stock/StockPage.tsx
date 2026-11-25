@@ -5,6 +5,7 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import { Card } from '@/components/app/Page'
 import { AlertBell } from '@/components/app/AlertBell'
 import { WatchStar } from '@/components/app/WatchStar'
+import { StockNote, StockNoteLine } from '@/components/app/StockNote'
 import { Button } from '@/components/ui/button'
 import { ChangePill } from '@/components/ui/pill'
 import { TabLinks } from '@/components/ui/tabs'
@@ -219,6 +220,7 @@ export function StockPage() {
             </Hint>
             <WatchStar t={t} withLabel />
             <AlertBell sid={t} />
+            <StockNote t={t} />
             <Button asChild>
               <Link to={`/compare?t=${t}`}>
                 <ChartLine />
@@ -234,6 +236,7 @@ export function StockPage() {
           )}
         </div>
       </header>
+      <StockNoteLine t={t} />
 
       <ResultsBar t={t} />
       <TabLinks label="Sections of this company" tabs={tabs.map(([k, l]) => ({ to: `/stock/${t}/${k}`, label: l }))} />
