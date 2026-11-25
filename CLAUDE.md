@@ -8,6 +8,8 @@ pull requests. Follow these rules so the app keeps working for everyone who down
   Releases, and installed apps only update to those. `vX.Y.Z-rc1` = pre-release (test version).
 - Urgent fix for a released version while `master` holds unfinished work: branch `release/X.Y` from the tag,
   fix there, tag `vX.Y.Z+1`, and merge the fix back into `master`.
+- Niels decides when a version is released: never tag or publish a release (or bump the version to a final
+  number) unless he says so. Until then `__version__` is the coming version with `-dev` (now `1.2.0-dev`).
 - Everything here is public: no personal data, emails, portfolios or tokens in code, commits, issues or PRs.
 
 ## Every time

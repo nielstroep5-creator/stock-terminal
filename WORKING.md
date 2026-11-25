@@ -9,4 +9,3 @@ Example:
 - Niels: Compare page, saved charts (app.js compare section) - since 2026-11-15
 
 ## Now
-- Claude (for Niels): start version 1.2 (version number, CHANGELOG, CLAUDE.md release rule) - since 2026-11-25
