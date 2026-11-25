@@ -9,3 +9,4 @@ Example:
 - Niels: Compare page, saved charts (app.js compare section) - since 2026-11-15
 
 ## Now
+- Niels (Claude): fixes from the 1.1 review, branch review-fixes (all over the app: first start, data setup, own trades, Compare, Alerts rules, offline behaviour, names, docs) - since 2026-11-25
