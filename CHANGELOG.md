@@ -13,6 +13,16 @@ Settings > About. Versions: 1.0.1 = fixes, 1.1.0 = new features.
 - Importing a broker file (DEGIRO) with the company name in the ticker column now finds the share by its ISIN,
   and a file with 2024-03-15 style dates says "year-month-day" instead of a code.
 - Settings in a small window: the section links sit in a row above the settings instead of lying on top of them.
+- The top bar shows how fresh the prices are: "Live", or "Offline, closes of Nov 13" / "Old prices" in orange
+  when Yahoo does not answer or the daily update has not run, and "Recalculating ratios 40%" while the ratios
+  are worked out again after a starter pack or an update.
+- Without internet the app no longer hangs: the Ownership tab answers in a few seconds instead of 16, Home's
+  index cards right away, and the Dow Jones card has its small chart from the stored closes too.
+- Search: "google" finds Alphabet, "facebook" Meta (and other well-known brand names); "apple" no longer lists
+  Pineapple or Applied Materials.
+- Company names in capitals with a few small letters ("COCA-COLA EUROPACIFIC PARTNERS plc") are written
+  normally, and "of", "and", "the" stay small ("Bank of America").
+- No more red errors in the browser console for companies without a logo.
 - The code is now open source: github.com/nielstroep5-creator/stock-terminal (MIT licence).
 
 ## 1.1.0 (2026-11-25)

@@ -566,7 +566,15 @@ def data_rules():
     if any(r["ticker"] == "BRK-B" for r in server._ticker_rows()):
         assert server._norm_ticker("brk/b") == "BRK-B" and server._norm_ticker("BRK B") == "BRK-B"
     assert not any("Not found" in r["name"] for r in server._search("google", 8)), "'google' offered as a ticker"
-    return "predecessor, negative bases, search"
+    rows = server._ticker_rows()
+    if any(r["ticker"] == "GOOGL" for r in rows):
+        assert server._search("google", 8)[0]["ticker"] == "GOOGL", "'google' finds Alphabet"
+    if any(r["ticker"] == "AAPL" for r in rows):
+        assert not any("ineapple" in r["name"] for r in server._search("apple", 8)), "'apple' in the middle of a word"
+    from .db import readable_name as rn
+    assert rn("COCA-COLA EUROPACIFIC PARTNERS plc") == "Coca-Cola Europacific Partners plc" and rn("NVIDIA Corp") == "NVIDIA Corp" \
+        and rn("BANK OF AMERICA CORP /DE/") == "Bank of America Corp" and rn("JPMORGAN CHASE & CO") == "JPMorgan Chase & Co", "names"
+    return "predecessor, negative bases, search, names"
 
 
 _DATA_SWAP = r"""

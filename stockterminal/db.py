@@ -686,17 +686,26 @@ def readable_name(name):
     is used where we have it, otherwise this makes the capitals readable ("Coca Cola Co"). Mixed-case names
     are left alone."""
     name = re.sub(r"\s*/[A-Za-z]{2,4}$", "", clean_name(name) or "")       # "LIMITED/NV" without the end slash
-    if not name or name != name.upper() or not any(c.isalpha() for c in name):
+    if not name or not any(c.isalpha() for c in name):
         return name
+    mixed = name != name.upper()
+    if mixed and sum(1 for w in name.split() if len(w.strip(",.")) > 3 and w.isupper()) < 2:
+        return name             # a real mixed-case name ("NVIDIA Corp", "ASML Holding") stays as it is
     words = []
     for w in name.split():
         core = w.strip(",.")
-        if core in _KEEP_UPPER or w in _KEEP_UPPER or (len(core) <= 3 and core.isalpha() and not any(v in core for v in "AEIOUY")):
+        if (mixed and not w.isupper()) or core in _KEEP_UPPER or w in _KEEP_UPPER or (len(core) <= 3 and core.isalpha() and not any(v in core for v in "AEIOUY")):
             words.append(w)                      # initials and abbreviations: "SBA", "CVS", "LLC"
         else:
             words.append(re.sub(r"(?<=')S\b", "s", w.capitalize()) if "'" in w else
                          "-".join(x.capitalize() for x in w.split("-")))
+    words = [x.lower() if i and x in ("Of", "And", "The", "For", "In", "On", "At") else _SPELLING.get(x, x)
+             for i, x in enumerate(words)]
     return " ".join(words)
+
+
+_SPELLING = {"Jpmorgan": "JPMorgan", "Mcdonald's": "McDonald's", "Mckesson": "McKesson", "Ebay": "eBay",
+             "Paypal": "PayPal", "Fedex": "FedEx", "Iqvia": "IQVIA", "Blackrock": "BlackRock", "Nvidia": "NVIDIA"}
 
 
 def log(conn, ticker, source, status, rows=None, message=None):
