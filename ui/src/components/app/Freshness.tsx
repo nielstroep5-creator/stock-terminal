@@ -35,6 +35,7 @@ export function Freshness() {
       </Hint>
     )
   }
+  if (!s.prices_date) return null // no companies yet: nothing to be fresh or old about
   const offline = s.quotes === 'offline'
   const stale = age(s.prices_date) > 4
   if (!offline && !stale) {
