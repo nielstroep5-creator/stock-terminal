@@ -5,7 +5,7 @@ Two kinds of install:
   steps as "Start Stock Terminal": git pull, new packages when requirements.txt changed, the self-test, and back
   to the previous version when that fails.
 - installed app (the Windows installer / Mac app, coming with v1.0): a new version is a newer release in the public
-  download repository (RELEASES_REPO). Checking works already; installing comes with the installer.
+  releases of the repository (RELEASES_REPO). Checking works already; installing comes with the installer.
 
     python -m stockterminal.appupdate          # check now and print the result
 """
@@ -22,7 +22,7 @@ import urllib.request
 from . import __version__
 from .config import DATA_DIR, FROZEN, ROOT
 
-RELEASES_REPO = "nielstroep5-creator/stock-terminal-releases"   # public, downloads only (the code repository is private)
+RELEASES_REPO = "nielstroep5-creator/stock-terminal"   # this repository: releases (installers, starter packs) and issues
 CHECK_CACHE_S = 3600
 _FLAGS = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 _lock = threading.Lock()       # one check or update at a time

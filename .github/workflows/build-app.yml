@@ -1,8 +1,8 @@
 # Builds the installed app: Stock-Terminal-Setup-<version>.exe (Windows) and Stock-Terminal-<version>-mac.zip.
 # Runs by hand (Actions > Build app > Run workflow), for a version tag (v1.0.0) and when the packaging changes.
 # The files appear under the run's "Artifacts". install-test installs the Windows one on a clean PC and loads a company.
-# A version tag also publishes a release in the public download repository (publish), and master / a tag update the
-# download page there (site, from packaging/site).
+# A version tag also publishes a release in this repository (publish), where installed apps look for updates.
+# The download page is docs/ (GitHub Pages: branch master, folder /docs).
 # See packaging/ (PyInstaller recipe, launcher, installer script).
 name: Build app
 
@@ -94,9 +94,8 @@ jobs:
           path: dist/Stock-Terminal-*-mac.zip
           if-no-files-found: error
 
-  # A version tag (v1.0.0, v1.0.0-rc1) publishes the installer and Mac zip as a release in the public download
-  # repository, where installed apps look for updates (stockterminal/appupdate.py, RELEASES_REPO). Needs the secret
-  # RELEASES_TOKEN: a fine-grained token with "Contents: read and write" on that repository only.
+  # A version tag (v1.0.0, v1.0.0-rc1) publishes the installer and Mac zip as a release in this repository, where
+  # installed apps look for updates (stockterminal/appupdate.py, RELEASES_REPO). A tag with "-" is a pre-release.
   install-test:
     # A clean Windows PC: install like a stranger would (no Python, no git), start, find and load a company, uninstall.
     needs: windows
@@ -151,28 +150,12 @@ jobs:
           if (-not (Test-Path "$data\terminal.db")) { throw "uninstall removed the user's data" }
           Write-Host "install, first start, search, load, uninstall: all ok"
 
-  site:
-    # The download page (packaging/site) goes to the public download repository: GitHub Pages shows its index.html.
-    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Copy the download page
-        env:
-          TOKEN: ${{ secrets.RELEASES_TOKEN }}
-        run: |
-          git clone --depth 1 "https://x-access-token:${TOKEN}@github.com/nielstroep5-creator/stock-terminal-releases.git" site-repo
-          cp packaging/site/* site-repo/
-          cd site-repo
-          git add -A
-          if git diff --cached --quiet; then echo "download page unchanged"; exit 0; fi
-          git -c user.name="Stock Terminal build" -c user.email="actions@users.noreply.github.com" commit -m "Download page from the app's build"
-          git push
-
   publish:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [windows, mac, install-test]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -191,11 +174,11 @@ jobs:
           base="${{ steps.v.outputs.version }}"; base="${base%%-*}"
           awk -v v="$base" '$0 ~ "^## "v"( |$)" {on=1; next} /^## / {if (on) exit} on' CHANGELOG.md > notes.md
           [ -s notes.md ] || echo "Stock Terminal ${{ steps.v.outputs.version }}" > notes.md
-      - name: Publish to the download repository
+      - name: Publish the release
         env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           v="${{ steps.v.outputs.version }}"
           pre=""; case "$v" in *-*) pre="--prerelease";; esac
-          gh release create "v$v" release-files/* --repo nielstroep5-creator/stock-terminal-releases \
+          gh release create "v$v" release-files/* --repo "$GITHUB_REPOSITORY" \
             --title "Stock Terminal $v" --notes-file notes.md $pre

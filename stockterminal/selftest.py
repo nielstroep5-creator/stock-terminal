@@ -92,7 +92,27 @@ def git_files():
                 hits.append(f)
     if hits:
         raise RuntimeError("a path of one PC in: " + ", ".join(hits))
+    # secrets and personal email addresses: the repository is public
+    secret = re.compile(r"gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16}|xox[abp]-[A-Za-z0-9-]{10,}"
+                        r"|-----BEGIN [A-Z ]*PRIVATE KEY-----"
+                        r"|[A-Za-z0-9._%+-]+@(gmail|hotmail|outlook|live|yahoo|icloud|proton|protonmail)\.[a-z.]{2,}", re.I)
+    leaks = []
+    for f in files:
+        if f.endswith((".png", ".ico", ".icns", ".woff", ".woff2", ".svg")) or f.endswith("selftest.py"):
+            continue
+        p = ROOT / f
+        if p.is_file() and _has_match(p, secret):
+            leaks.append(f)
+    if leaks:
+        raise RuntimeError("a key, token or personal email address in: " + ", ".join(leaks[:5]))
     return f"{len(files)} tracked files"
+
+
+def _has_match(path, pattern):
+    try:
+        return bool(pattern.search(path.read_text(encoding="utf-8", errors="ignore")))
+    except OSError:
+        return False
 
 
 NEW_UI = PKG / "app" / "static" / "new"
@@ -516,7 +536,7 @@ def main():
     print("Stock Terminal self-test")
     check("Python files compile", compile_all)
     check("all modules import", import_all)
-    check("nothing private or PC-specific in git", git_files)
+    check("nothing private, secret or PC-specific in git", git_files)
     check("new design is built and current", new_ui)
     check("server starts and answers", server)
     check("exports (PDF writer, box 3 overview)", exports)

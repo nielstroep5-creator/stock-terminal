@@ -1,7 +1,14 @@
 # Stock Terminal: rules for working on this project
 
-Two people work on this repository (Niels and a friend), each with Claude. Follow these rules so the
-app keeps working for both, and for anyone else who downloads it.
+This repository is public and open source (MIT). Niels and TvR maintain it, each with Claude; others may send
+pull requests. Follow these rules so the app keeps working for everyone who downloads it.
+
+## Stable and development
+- `master` = development. Releases are tags `vX.Y.Z` (must match `__version__`); the build publishes them under
+  Releases, and installed apps only update to those. `vX.Y.Z-rc1` = pre-release (test version).
+- Urgent fix for a released version while `master` holds unfinished work: branch `release/X.Y` from the tag,
+  fix there, tag `vX.Y.Z+1`, and merge the fix back into `master`.
+- Everything here is public: no personal data, emails, portfolios or tokens in code, commits, issues or PRs.
 
 ## Every time
 1. **`git pull` before you start.** The other person may have pushed since.
@@ -70,17 +77,17 @@ app keeps working for both, and for anyone else who downloads it.
   - `app/static/new/`: the screen, **built files, never edit by hand** (made from `ui/`, see above); `app/static/logo.svg`
   - `selftest.py`: the self-test
   - `appupdate.py`: updates of the app itself (Settings > About, pop-up at start): git copy = pull + packages + self-test
-    with rollback; installed app = newest release in the public download repository `RELEASES_REPO`
+    with rollback; installed app = newest release in this repository's Releases (`RELEASES_REPO`)
   - `datasetup.py`: company data for a new install (Settings > Data, pop-up after the welcome screen): the starter pack
-    from the download repository (release asset `stock-terminal-data-*.zip`) or another copy's data, prepared in
+    from this repository's Releases (release asset `stock-terminal-data-*.zip`) or another copy's data, prepared in
     `data/incoming/` and swapped in at the next start (`apply_incoming`, before anything opens the database)
   - `report.py`: "Report a problem" (Settings > About): version + last errors of `data/logs/app_errors.log` (screen and
-    server errors), emails / user names removed, to copy or open as an issue in the download repository; never sent by itself
+    server errors), emails / user names removed, to copy or open as an issue in this repository; never sent by itself
   - `__init__.py`: the app version (`__version__`, shown in Settings > About); change it together with `CHANGELOG.md`
     (release notes, newest first; add a line under the coming version for every change users notice)
 - `packaging/`: the installed app (PyInstaller recipe `stock-terminal.spec`, `launcher.py` = the window, `runner.py` =
-  background jobs, `installer.iss` = Windows installer, icons, `site/` = the download page, copied to the download
-  repository on master and on a version tag); built by `.github/workflows/build-app.yml` (also a clean-PC install test)
+  background jobs, `installer.iss` = Windows installer, icons); built by `.github/workflows/build-app.yml` (also a clean-PC install test)
+- `docs/`: the download page (GitHub Pages, branch master, folder /docs) and the screenshots of the README
 - `ui/`: source of the screen (React + TypeScript + Tailwind, shadcn-style parts in `src/components/ui/`,
   shared page parts in `src/components/app/`, pages in `src/pages/`). `ui/DESIGN.md`: how to build in it.
 - `companies.txt`: shared list of companies, synced through git by the daily update
