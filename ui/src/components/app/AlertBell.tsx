@@ -124,7 +124,7 @@ function Panel({ sid, close }: { sid: string; close: () => void }) {
         <div>
           <div className="mb-1.5 font-medium">Also tell me about</div>
           <div className="flex flex-wrap gap-1.5">
-            {STOCK_KINDS.filter(([k]) => !(d.etf && k === 'analysts')).map(([k, label]) => {
+            {STOCK_KINDS.filter(([k]) => !(d.etf && (k === 'analysts' || k === 'insider'))).map(([k, label]) => {
               const Icon = kindIcon(k === 'earnings' ? 'earnings' : k)
               const isOn = kindOn(k)
               return (

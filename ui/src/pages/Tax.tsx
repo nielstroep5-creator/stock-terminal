@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, FileSpreadsheet, FileText, Landmark } from 'lucide-react'
+import { ArrowLeft, FileSpreadsheet, FileText, Landmark, ListPlus } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -18,7 +18,8 @@ import { cn } from '@/lib/utils'
 import { SyncHistory, cash, pctTxt } from '@/pages/portfolio/common'
 
 // Box 3 per year with that year's rules (forfait + tegenbewijs up to 2028, vermogenswinstbelasting from 2029), see
-// stockterminal/tax.py. What you hold outside Trading 212 is kept in your settings (prefs group "tax", the same keys as
+// stockterminal/tax.py. Works for a Trading 212 account and for your own trades (source "own": no cash, no interest,
+// dividends from Yahoo before tax). What you hold elsewhere is kept in your settings (prefs group "tax", the same keys as
 // the old screen), never sent anywhere.
 
 type Rule = {
@@ -33,7 +34,8 @@ type Year = {
   interest: number; realised: { name: string; amount: number }[]; realised_total: number; actual: number; actual_pct: number | null
 }
 type Tax = {
-  empty: boolean; connected?: boolean; reason?: string; account_currency: string; rules: Record<string, Rule>; status: Record<string, string>; years: Record<string, Year>
+  empty: boolean; connected?: boolean; own?: boolean; reason?: string; account_currency: string; portfolio_currency: string
+  source: 'own' | 't212'; withheld_known: boolean; rules: Record<string, Rule>; status: Record<string, string>; years: Record<string, Year>
   today: string; checked: string; upcoming?: { date: string; text: string }[]; cash_check: { rebuilt: number; trading212: number | null }
   value_now: number; cost_now: number
 }
@@ -56,7 +58,7 @@ export function TaxPage() {
       {back}
       <div>
         <h1 className="text-[22px] font-bold tracking-tight">Tax (box 3)</h1>
-        <p className="mt-1 text-[13px] text-muted-foreground">Your Trading 212 numbers per year, worked out with that year's box 3 rules. An aid, not tax advice: the Belastingdienst decides.</p>
+        <p className="mt-1 text-[13px] text-muted-foreground">Your portfolio's numbers per year, worked out with that year's box 3 rules. An aid, not tax advice: the Belastingdienst decides.</p>
       </div>
       {children}
     </main>
@@ -67,7 +69,9 @@ export function TaxPage() {
       <Card>
         <Empty className="min-h-64">
           <span className="mb-1 flex size-11 items-center justify-center rounded-full bg-secondary text-primary"><Landmark className="size-5" /></span>
-          {d.connected ? (
+          {d.own ? (
+            <span>Your trades are in, but the price history of your holdings isn't downloaded yet. Open the Portfolio page once (Performance) and come back.</span>
+          ) : d.connected ? (
             d.reason === 'no_prices' ? (
               <span>Your trades are in, but the price history of your holdings isn't downloaded yet. Open the Portfolio page once (Performance) and come back.</span>
             ) : (
@@ -75,8 +79,11 @@ export function TaxPage() {
             )
           ) : (
             <>
-              <span>Connect Trading 212 first, then your yearly numbers appear here.</span>
-              <Button asChild variant="default" className="mt-2"><Link to="/settings?find=t212">Connect Trading 212</Link></Button>
+              <span>Add your trades (or import your broker's CSV), or connect Trading 212. Then your yearly numbers appear here.</span>
+              <span className="mt-2 flex flex-wrap justify-center gap-2">
+                <Button asChild variant="default"><Link to="/portfolio/trades"><ListPlus /> Add my trades</Link></Button>
+                <Button asChild><Link to="/settings?find=t212">Connect Trading 212</Link></Button>
+              </span>
             </>
           )}
         </Empty>
@@ -129,9 +136,10 @@ export function TaxPage() {
           {checkedOld && ' · more than 3 months ago: the figures may be outdated'}
           {nextUp && ` · next expected: ${nextUp.text} (${new Date(nextUp.date + '-15').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })})`}
         </p>
+        {d.portfolio_currency !== acc && <p className="mt-1 text-xs text-muted-foreground">Your portfolio is kept in {d.portfolio_currency}; box 3 is in euros, so every amount here is converted at that day's rate.</p>}
       </Card>
       {R.system === 'forfait' ? (
-        Y ? <Forfait key={y} d={d} y={y} R={R} Y={Y} m={m} ms={ms} onBlocks={setBlocks} /> : <Card><Empty>No Trading 212 data for {y} yet.</Empty></Card>
+        Y ? <Forfait key={y} d={d} y={y} R={R} Y={Y} m={m} ms={ms} onBlocks={setBlocks} /> : <Card><Empty>No portfolio numbers for {y} yet.</Empty></Card>
       ) : (
         <Gains key={y} d={d} y={y} R={R} m={m} ms={ms} onBlocks={setBlocks} />
       )}
@@ -148,6 +156,11 @@ function Forfait({ d, y, R, Y, m, ms, onBlocks }: { d: Tax; y: number; R: Rule; 
   const partner = pref<boolean>('tax', 'partner', false)
   const cashAs = pref<string>('tax', 'cash_as', 'bank')
   const persons = partner ? 2 : 1
+  const own = d.source === 'own'
+  // the wording per source: a Trading 212 account (with cash) or your own trades (holdings only)
+  const W = own
+    ? { held: 'Holdings in your trades on 1 Jan', savings: 'Savings (bank)', invest: 'Other investments (not in your trades)', outside: 'Not in your trades', share: 'of which from the holdings in your trades', acct: 'your trades' }
+    : { held: 'Trading 212 holdings on 1 Jan', savings: 'Savings (bank) outside Trading 212', invest: 'Other investments outside Trading 212', outside: 'Outside Trading 212', share: 'of which from your Trading 212 account', acct: 'this account' }
   const bank = savings + (cashAs === 'bank' ? Y.cash_start : 0)
   const other = invest + Y.start_value + (cashAs === 'other' ? Y.cash_start : 0)
   const base = bank + other
@@ -164,20 +177,20 @@ function Forfait({ d, y, R, Y, m, ms, onBlocks }: { d: Tax; y: number; R: Rule; 
     {
       title: `Box 3 on the forfait, ${y} (with what you entered on the page)`,
       rows: [
-        ['Trading 212 holdings on 1 Jan', Y.start_value], ['Trading 212 cash on 1 Jan', Y.cash_start], ['Savings (bank) outside Trading 212', savings], ['Other investments outside Trading 212', invest],
+        [W.held, Y.start_value], ...(own ? [] : [['Trading 212 cash on 1 Jan', Y.cash_start] as [string, number]]), [W.savings, savings], [W.invest, invest],
         ['Box 3 total', base, true], [`Tax-free (${persons === 2 ? '2 × ' : ''}${m(R.exempt!)})`, -exempt], [`Fictitious return (${base ? pct(R0 / base) : '–'} on average)`, R0],
-        ['Taxable return (benefit)', benefit], [`Box 3 tax (${pct(R.rate!, 1)})`, tax, true], ['of which from your Trading 212 account', tax * share],
+        ['Taxable return (benefit)', benefit], [`Box 3 tax (${pct(R.rate!, 1)})`, tax, true], [W.share, tax * share],
       ],
-      notes: [`${persons === 2 ? 'With a fiscal partner: amounts are for both of you.' : 'Without a fiscal partner.'} Trading 212 cash counted as ${cashAs === 'bank' ? 'savings (bank)' : 'investments'}. Debts are not included.`],
+      notes: [`${persons === 2 ? 'With a fiscal partner: amounts are for both of you.' : 'Without a fiscal partner.'} ${own ? 'Cash at your broker is not in your trades: it is in the savings above if you added it.' : `Trading 212 cash counted as ${cashAs === 'bank' ? 'savings (bank)' : 'investments'}.`} Debts are not included.`],
     },
     {
-      title: 'Actual return of this account vs the forfait (tegenbewijs)',
+      title: `Actual return of ${W.acct} vs the forfait (tegenbewijs)`,
       rows: [
-        ['Holdings on 1 Jan', Y.start_value], [`Holdings ${end}`, Y.end_value], ['Bought minus sold', Y.money_in], ['Dividends (gross) and interest', Y.dividends.gross + Y.interest],
-        [`Actual return${Y.actual_pct !== null ? ` (about ${pctTxt(Y.actual_pct)})` : ''}`, Y.actual, true], ['Forfait on this account', forf, true],
+        ['Holdings on 1 Jan', Y.start_value], [`Holdings ${end}`, Y.end_value], ['Bought minus sold', Y.money_in], [own ? 'Dividends (gross)' : 'Dividends (gross) and interest', Y.dividends.gross + Y.interest],
+        [`Actual return${Y.actual_pct !== null ? ` (about ${pctTxt(Y.actual_pct)})` : ''}`, Y.actual, true], [`Forfait on ${W.acct}`, forf, true],
       ],
       notes: [
-        !Y.complete ? 'The year is not over: these are the numbers up to today.' : lower ? 'The actual return on this account was lower than the forfait. The tegenbewijsregeling compares your whole box 3 (savings and other investments too), not just this account.' : 'The actual return on this account was higher than the forfait.',
+        !Y.complete ? 'The year is not over: these are the numbers up to today.' : lower ? `The actual return on ${W.acct} was lower than the forfait. The tegenbewijsregeling compares your whole box 3 (savings and other investments too), not just ${W.acct}.` : `The actual return on ${W.acct} was higher than the forfait.`,
         'Actual return = value at the end - value at the start - bought + sold + dividends (gross) + interest; unrealised gains count.',
       ],
     },
@@ -189,32 +202,37 @@ function Forfait({ d, y, R, Y, m, ms, onBlocks }: { d: Tax; y: number; R: Rule; 
     <>
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <Card className="p-4">
-          <H2>Outside Trading 212 on 1 January {y}</H2>
+          <H2>{W.outside} on 1 January {y}</H2>
           <div className="grid gap-3 sm:grid-cols-2">
-            <MoneyField label="Savings (bank)" value={savings} onChange={(v) => setPref('tax', `${y}_savings`, v)} />
+            <MoneyField label={own ? 'Savings (bank) and broker cash' : 'Savings (bank)'} value={savings} onChange={(v) => setPref('tax', `${y}_savings`, v)} />
             <MoneyField label="Other investments" value={invest} onChange={(v) => setPref('tax', `${y}_invest`, v)} />
           </div>
           <label className="mt-4 flex items-center gap-3 text-[13px]">
             <Switch checked={partner} onCheckedChange={(v) => setPref('tax', 'partner', v)} aria-label="Fiscal partner" />
             Fiscal partner <span className="text-muted-foreground">(the amounts above are for both of you)</span>
           </label>
-          <div className="mt-4 flex flex-wrap items-center gap-3 text-[13px]">
-            Cash at Trading 212 counts as
-            <Segmented label="Cash at Trading 212 counts as" value={cashAs} onChange={(v) => setPref('tax', 'cash_as', v)} options={[{ value: 'bank', label: 'Savings' }, { value: 'other', label: 'Investments' }]} />
-          </div>
-          <p className="mt-4 text-xs text-muted-foreground">Kept on this computer only. Ask the Belastingdienst or check your annual statement if you are unsure how your broker cash counts.</p>
+          {!own && (
+            <div className="mt-4 flex flex-wrap items-center gap-3 text-[13px]">
+              Cash at Trading 212 counts as
+              <Segmented label="Cash at Trading 212 counts as" value={cashAs} onChange={(v) => setPref('tax', 'cash_as', v)} options={[{ value: 'bank', label: 'Savings' }, { value: 'other', label: 'Investments' }]} />
+            </div>
+          )}
+          <p className="mt-4 text-xs text-muted-foreground">
+            {own ? "Your trades don't include the cash at your broker: add it to savings. Investments elsewhere that are not in your trades go under other investments. " : ''}
+            Kept on this computer only. Ask the Belastingdienst or check your annual statement if you are unsure how your broker cash counts.
+          </p>
         </Card>
         <Card className="p-4">
           <H2>Box 3 on the forfait, {y}</H2>
-          <Kv label="Trading 212 holdings on 1 Jan">{m(Y.start_value)}</Kv>
-          <Kv label="Trading 212 cash on 1 Jan">{m(Y.cash_start)}</Kv>
+          <Kv label={W.held}>{m(Y.start_value)}</Kv>
+          {!own && <Kv label="Trading 212 cash on 1 Jan">{m(Y.cash_start)}</Kv>}
           <Kv label="Savings + other investments">{m(savings + invest)}</Kv>
           <Kv label="Box 3 total"><Bold>{m(base)}</Bold></Kv>
           <Kv label={`Tax-free (${persons === 2 ? '2 × ' : ''}${m(R.exempt!)})`}>− {m(exempt)}</Kv>
           <Kv label={`Fictitious return (${base ? pct(R0 / base) : '–'} on average)`}>{m(R0)}</Kv>
           <Kv label="Taxable return (benefit)">{m(benefit)}</Kv>
           <Kv label={`Box 3 tax (${pct(R.rate!, 1)})`}><span className="text-[15px] font-bold">{m(tax)}</span></Kv>
-          <Kv label="of which from your Trading 212 account">{m(tax * share)}</Kv>
+          <Kv label={W.share}>{m(tax * share)}</Kv>
         </Card>
       </div>
       <div className="grid items-start gap-4 lg:grid-cols-2">
@@ -223,23 +241,36 @@ function Forfait({ d, y, R, Y, m, ms, onBlocks }: { d: Tax; y: number; R: Rule; 
           <Kv label="Holdings on 1 Jan">{m(Y.start_value)}</Kv>
           <Kv label={`Holdings ${end}`}>{m(Y.end_value)}</Kv>
           <Kv label="Bought minus sold">{ms(Y.money_in)}</Kv>
-          <Kv label="Dividends (gross) and interest">{m(Y.dividends.gross + Y.interest)}</Kv>
+          <Kv label={own ? 'Dividends (gross)' : 'Dividends (gross) and interest'}>{m(Y.dividends.gross + Y.interest)}</Kv>
           <Kv label="Actual return"><span className={cn('font-semibold', tone(Y.actual))}>{ms(Y.actual)}</span>{Y.actual_pct !== null && <span className="font-normal text-muted-foreground"> (about {pctTxt(Y.actual_pct)})</span>}</Kv>
-          <Kv label="Forfait on this account"><Bold>{m(forf)}</Bold></Kv>
+          <Kv label={`Forfait on ${W.acct}`}><Bold>{m(forf)}</Bold></Kv>
           <div className={cn('mt-3 rounded-lg px-3 py-2.5 text-[13px]', lower && Y.complete ? 'bg-up-bg' : 'bg-secondary')}>
             {!Y.complete ? (
               'The year is not over: compare again after 31 December.'
             ) : lower ? (
-              <>Your actual return on this account was <b>lower</b> than the forfait. With the tegenbewijsregeling you can then be taxed on the actual return instead. Note: that compares your <i>whole</i> box 3 (savings and other investments too), not just this account.</>
+              <>Your actual return on {W.acct} was <b>lower</b> than the forfait. With the tegenbewijsregeling you can then be taxed on the actual return instead. Note: that compares your <i>whole</i> box 3 (savings and other investments too), not just {W.acct}.</>
             ) : (
-              'Your actual return on this account was higher than the forfait, so the forfait is the lower of the two here.'
+              `Your actual return on ${W.acct} was higher than the forfait, so the forfait is the lower of the two here.`
             )}
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">Actual return = value at the end − value at the start − bought + sold + dividends (gross) + interest; unrealised gains count, as in the tegenbewijsregeling.</p>
+          <p className="mt-2 text-xs text-muted-foreground">Actual return = value at the end − value at the start − bought + sold + dividends (gross){own ? '' : ' + interest'}; unrealised gains count, as in the tegenbewijsregeling.</p>
         </Card>
         <Card className="min-w-0 p-4">
           <H2>Dividends {y}</H2>
-          {Dv.gross ? (
+          {Dv.gross && !d.withheld_known ? (
+            <>
+              <table className="tbl tight">
+                <thead><tr><th>From</th><th>Gross (before tax)</th></tr></thead>
+                <tbody>
+                  {Y.dividends_by_country.map((r) => <tr key={r.country}><td>{r.country}</td><td>{m(r.gross)}</td></tr>)}
+                  <tr className="font-semibold"><td>Total</td><td>{m(Dv.gross)}</td></tr>
+                </tbody>
+              </table>
+              <p className="mt-2 text-xs text-muted-foreground">
+                From Yahoo's dividend history and the shares you held the day before each ex-dividend date, booked on the ex-date. Your trades don't say how much tax was withheld: your broker's dividend statement has those amounts, which you can usually settle in your tax return.
+              </p>
+            </>
+          ) : Dv.gross ? (
             <>
               <table className="tbl tight">
                 <thead><tr><th>From</th><th>Gross</th><th>Tax withheld</th><th>Received</th></tr></thead>
@@ -262,17 +293,23 @@ function Forfait({ d, y, R, Y, m, ms, onBlocks }: { d: Tax; y: number; R: Rule; 
         <H2 side={Y.realised.length ? <span className={cn('text-[15px] font-semibold', tone(Y.realised_total))}>{ms(Y.realised_total)}</span> : undefined}>Realised gains {y}</H2>
         {Y.realised.length ? (
           <>
-            <p className="mb-2 text-xs text-muted-foreground">From shares you sold (Trading 212's own figure). Not taxed separately under the forfait; from 2029 this is what box 3 taxes.</p>
+            <p className="mb-2 text-xs text-muted-foreground">From shares you sold ({own ? 'sale minus the average price you paid, fees included' : "Trading 212's own figure"}). Not taxed separately under the forfait; from 2029 this is what box 3 taxes.</p>
             <div className="grid gap-x-8 md:grid-cols-2">{Y.realised.map((r) => <Kv key={r.name} label={r.name}><span className={tone(r.amount)}>{ms(r.amount)}</span></Kv>)}</div>
           </>
         ) : (
           <p className="text-[13px] text-muted-foreground">Nothing sold in {y}.</p>
         )}
       </Card>
-      <p className="text-xs text-muted-foreground">
-        Values from your synced Trading 212 history: holdings at the last close of the year before (the 1 January peildatum), Trading 212 cash rebuilt from every booking (now {m(d.cash_check.rebuilt)}
-        {d.cash_check.trading212 !== null && d.cash_check.trading212 !== undefined && `; Trading 212 says ${m(d.cash_check.trading212)}`}). Check them against Trading 212's annual statement before you file.
-      </p>
+      {own ? (
+        <p className="text-xs text-muted-foreground">
+          Values worked out from the trades you entered and Yahoo's closing prices: holdings at the last close of the year before (the 1 January peildatum). Check them against your broker's annual statement before you file.
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Values from your synced Trading 212 history: holdings at the last close of the year before (the 1 January peildatum), Trading 212 cash rebuilt from every booking (now {m(d.cash_check.rebuilt)}
+          {d.cash_check.trading212 !== null && d.cash_check.trading212 !== undefined && `; Trading 212 says ${m(d.cash_check.trading212)}`}). Check them against Trading 212's annual statement before you file.
+        </p>
+      )}
     </>
   )
 }
@@ -301,7 +338,7 @@ function Gains({ d, y, R, m, ms, onBlocks }: { d: Tax; y: number; R: Rule } & Fn
     {
       title: `Example: ${y} rules (proposal) on your ${base} numbers`,
       rows: [['Realised gains (shares sold)', Y.realised_total], ['Dividends (gross)', Y.dividends.gross], ['Interest', Y.interest], ['Result', result, true], [`Tax-free result (${persons === 2 ? '2 × ' : ''}${m(R.exempt_result!)})`, -R.exempt_result! * persons], ['Estimated box 3 tax', tax, true]],
-      notes: ["Unrealised gains are not taxed: only when you sell. What you own on 1 January 2029 gets that day's value as purchase price.", 'Savings interest and investments outside Trading 212 are not included.'],
+      notes: ["Unrealised gains are not taxed: only when you sell. What you own on 1 January 2029 gets that day's value as purchase price.", `Savings interest and investments outside ${d.source === 'own' ? 'your trades' : 'Trading 212'} are not included.`],
     },
   ]
   useBlocks(JSON.stringify(blocks), blocks, onBlocks)
@@ -317,7 +354,7 @@ function Gains({ d, y, R, m, ms, onBlocks }: { d: Tax; y: number; R: Rule } & Fn
         <Kv label={`Tax-free result (${persons === 2 ? '2 × ' : ''}${m(R.exempt_result!)})`}>− {m(R.exempt_result! * persons)}</Kv>
         <Kv label="Estimated box 3 tax"><span className="text-[15px] font-bold">{m(tax)}</span></Kv>
         {taxable < 0 && result < 0 && <p className="mt-2 text-xs text-muted-foreground">A loss: under the proposal it can be set off against later years (the part above {m(R.loss_threshold!)} a year).</p>}
-        <p className="mt-2 text-xs text-muted-foreground">Unrealised gains are not taxed here: only when you sell. Your own savings interest and other investments outside Trading 212 would count too. Dividend tax withheld ({m(Y.dividends.withheld)} in {base}) can usually still be settled.</p>
+        <p className="mt-2 text-xs text-muted-foreground">Unrealised gains are not taxed here: only when you sell. Your own savings interest and other investments outside {d.source === 'own' ? 'your trades' : 'Trading 212'} would count too. {d.withheld_known ? `Dividend tax withheld (${m(Y.dividends.withheld)} in ${base}) can usually still be settled.` : 'Dividend tax withheld (on your broker\'s statement) can usually still be settled.'}</p>
       </Card>
       <Card className="p-4">
         <H2>What changes for you</H2>

@@ -1,4 +1,4 @@
-import { Bell, Briefcase, CalendarDays, ChartLine, HeartPulse, Home, Layers, ListFilter, Receipt, Star } from 'lucide-react'
+import { Bell, Briefcase, CalendarDays, ChartLine, HeartPulse, Home, Layers, ListFilter, Receipt, Shapes, Star } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export type NavItem = { to: string; label: string; icon: LucideIcon; /** other paths that light up this item */ also?: string[]; /** shown indented under the item above */ sub?: boolean; /** more words the search finds it by */ words?: string }
@@ -12,6 +12,7 @@ export const NAV: NavItem[] = [
   { to: '/earnings', label: 'Earnings', icon: CalendarDays, sub: true, words: 'earnings calendar results dates surprises beat miss estimates reporting' },
   // the Screener is also the list of all companies (the old Companies page)
   { to: '/screener', label: 'Screener', icon: ListFilter, also: ['/stock', '/load', '/companies'] },
+  { to: '/sectors', label: 'Sectors', icon: Shapes, sub: true, words: 'sector industry industries median margins valuation rank peers groups' },
   { to: '/data-health', label: 'Data health', icon: HeartPulse, sub: true },
   { to: '/etfs', label: 'ETFs', icon: Layers, also: ['/etf'] },
   { to: '/compare', label: 'Compare', icon: ChartLine },

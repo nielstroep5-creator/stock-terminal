@@ -3,6 +3,7 @@ import datetime as dt
 import difflib
 import json
 import re
+import os
 import sqlite3
 import subprocess
 import sys
@@ -15,7 +16,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .. import alerts, allocation, analysis, costs, db, quality, dividends, etf, events, market, own, pf_history, portfolio, quote, screener, settings, tax, trading212, watchlist, xray
+from .. import alerts, allocation, analysis, costs, db, quality, dividends, etf, events, market, own, pf_history, portfolio, quote, screener, sectors, settings, tax, trading212, watchlist, xray
 from ..config import DATA_DIR, DB_PATH, ROOT, module_cmd
 from ..mapping import INDUSTRY_SIC, ITEMS
 from ..metrics import NEEDS_POSITIVE_BASE
@@ -68,6 +69,17 @@ def _ensure_ticker_list():
 def _start_catch_up():
     threading.Thread(target=_ensure_ticker_list, daemon=True).start()
     threading.Thread(target=_catch_up, daemon=True).start()
+    threading.Thread(target=_ratios_upgrade, daemon=True).start()
+
+
+def _ratios_upgrade():
+    """Data from a starter pack or copy made by older code gets its ratios recalculated once (metrics.py)."""
+    try:
+        from .. import metrics
+        if metrics.recalc_if_outdated():
+            screener._cache["rows"] = None          # the Screener / Sectors table is built again
+    except Exception as e:  # noqa: BLE001
+        print(f"ratios upgrade: {e}")
 
 # --------------------------------------------------------------------------- catalogs
 METRICS = [
@@ -713,6 +725,51 @@ def dividend_info(ticker: str, live: int = 0):
     return out
 
 
+@app.get("/api/insiders/{ticker}")
+def insider_trades(ticker: str, refresh: int = 0):
+    """Ownership tab: insider trades from the SEC's Form 4 filings (stockterminal/insiders.py). refresh=1 downloads
+    the Form 4s not stored yet (at most insiders.MAX_NEW per call; `left` says how many are still to come)."""
+    from .. import insiders
+    t = ticker.upper()
+    c = company(t) or {}
+    if not c.get("cik"):
+        return dict(available=False, reason="Insider trades come from the SEC; this stock has no SEC filings in the app.")
+    conn = db.connect()
+    try:
+        got, error = dict(new=0, left=0), None
+        if refresh:
+            try:
+                got = insiders.update(conn, c["cik"])
+            except Exception as e:  # noqa: BLE001  offline: what is stored
+                error = "Could not reach the SEC" if "403" not in str(e) else "The SEC refused the request (enter your email in Settings)"
+        out = insiders.summary(conn, c["cik"])
+    finally:
+        conn.close()
+    foreign = annual_only(c["cik"])
+    return dict(out, available=True, left=got.get("left", 0), error=error, foreign=foreign)
+
+
+@app.get("/api/investors/{ticker}")
+def big_investors(ticker: str, refresh: int = 0):
+    """Ownership tab: the largest holders (Yahoo) and the famous investors that hold this stock (their 13F filings
+    at the SEC, stockterminal/investors.py; downloaded in the background once a week)."""
+    from .. import investors
+    from ..quote import yahoo_symbol
+    t = ticker.upper()
+    c = company(t) or {}
+    conn = db.connect()
+    try:
+        yahoo = investors.yahoo_holders(conn, yahoo_symbol(t), refresh=bool(refresh))
+        famous, state = None, None
+        if c.get("cik"):
+            state = investors.refresh_in_background(conn) if refresh else None
+            names = [c.get("name"), c.get("display_name")] + [r[0] for r in conn.execute("SELECT name FROM tickers WHERE ticker=?", (t,))]
+            famous = investors.famous_for(conn, c["cik"], names)
+    finally:
+        conn.close()
+    return dict(yahoo=yahoo, famous=famous, state=state, followed=[dict(cik=k, name=v) for k, v in investors.FAMOUS])
+
+
 @app.get("/api/analyst/{ticker}")
 def analyst(ticker: str, live: int = 0):
     t = ticker.upper()
@@ -1300,6 +1357,30 @@ def screener_rows(live: int = 0):
                 rows=[screener.public(r) for r in out], live=bool(live))
 
 
+@app.get("/api/sectors")
+def sectors_overview():
+    """The Sectors page: every sector with its medians (stockterminal/sectors.py, from the Screener table)."""
+    return sectors.overview(screener.rows(DB_PATH.stat().st_mtime))
+
+
+@app.get("/api/sectors/group")
+def sectors_group(sector: str, industry: str | None = None):
+    """One sector (with its industries) or one industry: medians and every company with its ranks."""
+    out = sectors.group(screener.rows(DB_PATH.stat().st_mtime), sector, industry)
+    if out is None:
+        raise HTTPException(404, "No companies in this group")
+    return out
+
+
+@app.get("/api/sectors/rank/{ticker}")
+def sectors_rank(ticker: str):
+    """Where one company ranks in its industry and sector (the stock page)."""
+    out = sectors.position(screener.rows(DB_PATH.stat().st_mtime), ticker)
+    if out is None:
+        raise HTTPException(404, "Company not in the Screener table")
+    return out
+
+
 @app.get("/api/compare_table")
 def compare_table(tickers: str, live: int = 0):
     ts = [t for t in tickers.upper().split(",") if t]
@@ -1326,7 +1407,22 @@ def about():
             commit = r.stdout.strip() or None
     except Exception:  # noqa: BLE001 - no git: the version alone is enough
         pass
-    return dict(version=__version__, commit=commit)
+    from ..config import FROZEN
+    from ..datasetup import last_import
+    return dict(version=__version__, commit=commit, data_dir=str(DATA_DIR), imported=last_import(),
+                kind="installed app" if FROZEN else "test copy", window=close_window is not None)
+
+
+@app.post("/api/data/open-folder")
+def open_data_folder():
+    """Settings > Data folder: show the folder in Explorer / Finder (only in the app window on this computer)."""
+    if close_window is None:
+        return dict(opened=False)
+    if sys.platform == "win32":
+        os.startfile(str(DATA_DIR))  # noqa: S606 - our own data folder
+    else:
+        subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(DATA_DIR)])
+    return dict(opened=True)
 
 
 close_window = None   # set by app/__main__.py when the app runs in its own window (None in --serve / browser mode)

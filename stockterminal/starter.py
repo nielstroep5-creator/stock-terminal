@@ -21,7 +21,7 @@ import zipfile
 
 from .config import DATA_DIR, DB_PATH, ROOT
 
-RAW_TABLES = ("xbrl_facts", "segment_facts", "parsed_filings", "news_cache")   # rebuilt when needed (SEC; news: Yahoo)
+RAW_TABLES = ("xbrl_facts", "segment_facts", "parsed_filings", "news_cache", "holders_cache")   # rebuilt when needed (SEC; news: Yahoo)
 SKIP_TABLES = ("sqlite_sequence", "slim_companies")
 PRIVATE_PREFIX = "pf_"     # personal portfolio tables (Trading 212): never in a starter pack
 EXPORT_DIR = DATA_DIR / "export"

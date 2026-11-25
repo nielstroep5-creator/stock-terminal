@@ -169,6 +169,46 @@ def compute_for(w, ptype, w_orig=None, w_prior=None):
     return out
 
 
+# Raise when a change to how ratios are worked out must reach data made by older code (a starter pack, another
+# copy): at the next start every company's ratios and valuation are recalculated once, in the background.
+# 2 = the 3/5/10-year growth (CAGR) and ROE/ROA averages fix of 2026-11-16.
+METRICS_VERSION = 2
+
+
+def recalc_if_outdated(say=print):
+    """Ratios made by older code (stored version below METRICS_VERSION): recalculate them for every company,
+    from the stored financials (no download, also works for starter-pack companies). Takes a few minutes."""
+    from . import db
+    conn = db.connect()
+    try:
+        conn.execute("CREATE TABLE IF NOT EXISTS metrics_version (v INTEGER)")
+        v = (conn.execute("SELECT MAX(v) FROM metrics_version").fetchone() or [None])[0] or 0
+        if v >= METRICS_VERSION:
+            return 0
+        cos = conn.execute("SELECT cik, ticker FROM companies WHERE cik IS NOT NULL AND ticker IS NOT NULL").fetchall()
+        if not cos:                       # empty database: nothing old to fix
+            conn.execute("DELETE FROM metrics_version")
+            conn.execute("INSERT INTO metrics_version VALUES (?)", (METRICS_VERSION,))
+            conn.commit()
+            return 0
+        say(f"Ratios made by an older version: recalculating {len(cos)} companies")
+        n = 0
+        for cik, t in cos:
+            try:
+                compute_metrics(conn, cik)
+                compute_valuation(conn, cik, t)
+                n += 1
+            except Exception as e:  # noqa: BLE001 - one company must not stop the rest
+                db.log(conn, t, "metrics_upgrade", "error", None, str(e)[:300])
+        conn.execute("DELETE FROM metrics_version")
+        conn.execute("INSERT INTO metrics_version VALUES (?)", (METRICS_VERSION,))
+        conn.commit()
+        db.log(conn, None, "metrics_upgrade", "ok", n, f"ratios recalculated (version {METRICS_VERSION})")
+        return n
+    finally:
+        conn.close()
+
+
 def compute_metrics(conn, cik):
     fin = pd.read_sql_query("SELECT * FROM financials WHERE cik=?", conn, params=(cik,))
     rows = []

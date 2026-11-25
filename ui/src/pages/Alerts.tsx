@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BellOff, Briefcase, ChartColumn, CheckCheck, ChevronDown, CircleDollarSign, ExternalLink, Loader2, MoveVertical, Search,
-  Send, Smartphone, Sparkles, Star, Sunrise, Target, TriangleAlert, X,
+  Send, Smartphone, Sparkles, Star, Sunrise, Target, TriangleAlert, UserCheck, X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -21,6 +21,7 @@ import type { AlertItem, AlertList, LastCheck, StockAlert } from '@/lib/alerts'
 import { api } from '@/lib/api'
 import { useSettings } from '@/lib/settings'
 import { useToast } from '@/lib/toast'
+import { big } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { sharePrice, t212Symbol } from '@/pages/portfolio/common'
 
@@ -31,7 +32,7 @@ import { sharePrice, t212Symbol } from '@/pages/portfolio/common'
 const KIND_FILTER = [
   { value: 'all', label: 'All' }, { value: 'limit', label: 'Price limits' }, { value: 'move', label: 'Moves' },
   { value: 'earnings', label: 'Results' }, { value: 'dividend', label: 'Dividends' }, { value: 'analysts', label: 'Analysts' },
-  { value: 'portfolio', label: 'Portfolio' },
+  { value: 'insider', label: 'Insiders' }, { value: 'portfolio', label: 'Portfolio' },
 ]
 const FROM_FILTER = [
   { value: 'all', label: 'All stocks' }, { value: 'portfolio', label: 'Holdings' }, { value: 'watchlist', label: 'Watchlist' }, { value: 'other', label: 'Other' },
@@ -339,7 +340,7 @@ function Rules() {
   if (!r.ready) return <Card><Empty>Loading…</Empty></Card>
   const n = (k: string) => r.get<number>(k, 0)
   const sign = (up: string) => (r.get(up, false) ? '±' : '−')
-  const wl = [r.get('wl_move', true) && 'moves', r.get('wl_earn', true) && 'results', r.get('wl_an', true) && 'analysts', r.get('wl_div', false) && 'dividends']
+  const wl = [r.get('wl_move', true) && 'moves', r.get('wl_earn', true) && 'results', r.get('wl_an', true) && 'analysts', r.get('wl_div', false) && 'dividends', r.get('wl_ins', false) && 'insider buys']
     .filter(Boolean).join(', ')
   return (
     <>
@@ -386,12 +387,21 @@ function Rules() {
             <Toggle k="an_rec" label="Advice changes (buy → hold)" fallback />
             <p className="basis-full text-xs text-muted-foreground">To your phone: only big ones (twice the limit, or a new advice). Not for ETFs. Price-target alerts start a month after the first check.</p>
           </Line>
+          <Line id="ins" icon={UserCheck} title="Insider buys" on="ins_on" push="ins_push"
+            summary={`An insider buys shares of a stock you hold, $${big(n('ins_min'))} or more`}>
+            <Num k="ins_min" label="Buys of at least" unit="$" step={1000} />
+            <p className="basis-full text-xs text-muted-foreground">
+              From the Form 4 filings at the SEC, checked every morning (US companies only). Awards, option exercises and sales do not count.
+              See every insider trade on a stock's Ownership tab.
+            </p>
+          </Line>
           <Line id="wl" icon={Star} title="Watchlist" on="wl_on"
             summary={`Buy-below prices${wl ? `, and ${wl}` : ''} for the stocks you watch`}>
             <Toggle k="wl_move" label="Daily moves" fallback />
             <Toggle k="wl_earn" label="Results" fallback />
             <Toggle k="wl_an" label="Analysts" fallback />
             <Toggle k="wl_div" label="Dividend changes" />
+            <Toggle k="wl_ins" label="Insider buys" />
             <Link to="/watchlist" className="flex h-8.5 items-center text-[13px] text-primary hover:underline">Buy-below prices →</Link>
           </Line>
           <SummaryLine />
@@ -551,7 +561,7 @@ const SHOW = [
   { value: 'set', label: 'With your settings' }, { value: 'all', label: 'All' }, { value: 'portfolio', label: 'Holdings' },
   { value: 'watchlist', label: 'Watchlist' }, { value: 'other', label: 'Other' },
 ]
-const SHORT: Record<string, string> = { move: 'moves', earnings: 'results', dividend: 'dividend', analysts: 'analysts', limit: 'price' }
+const SHORT: Record<string, string> = { move: 'moves', earnings: 'results', dividend: 'dividend', analysts: 'analysts', insider: 'insiders', limit: 'price' }
 
 /** Every stock alerts know about in one table: limits, how far the price is from them, own move %, what is skipped.
  *  The bell on each row edits it (the same panel as on the stock's page). */
@@ -625,7 +635,7 @@ function YourStocks() {
                     <td className={cn(dist !== null && dist < 0.03 && 'font-semibold text-flag')}>{dist === null ? '–' : dist <= 0 ? <Hint label="The price is past this limit; the alert comes again after it moves back"><span className="cursor-help">passed</span></Hint> : `${(dist * 100).toFixed(1)}%`}</td>
                     <td>{s.move ? `${s.move}%` : <span className="text-muted-foreground">{s.move_rule ? `${s.move_rule}%` : 'off'}</span>}</td>
                     <td className="text-left! text-muted-foreground">
-                      {s.mute || s.off.length >= 5 ? <span className="inline-flex items-center gap-1"><BellOff className="size-3.5" /> muted</span>
+                      {s.mute || s.off.length >= 6 ? <span className="inline-flex items-center gap-1"><BellOff className="size-3.5" /> muted</span>
                         : s.origin === 'other' ? (s.on.length ? `only price${s.on.map((k) => `, ${SHORT[k] ?? k}`).join('')}` : 'only price')
                           : s.off.length ? s.off.map((k) => SHORT[k] ?? k).join(', ') : ''}
                     </td>

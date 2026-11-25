@@ -70,6 +70,22 @@ def latest_pack():
     return best
 
 
+LOG = DATA_DIR / "logs" / "datasetup.log"
+
+
+def last_import():
+    """The last time data was taken over from elsewhere (logs/datasetup.log): {at, source} or None."""
+    try:
+        lines = LOG.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    for line in reversed(lines):        # "2026-11-25 01:32:24 Now using Data from C:\Stock Terminal\data: 503 companies."
+        msg = line[20:]
+        if msg.startswith("Now using "):
+            return dict(at=line[:16], source=msg[len("Now using "):].rsplit(":", 1)[0])
+    return None
+
+
 def status():
     """{companies, waiting (a prepared database waits for a restart), job, pack (or pack_error)}"""
     res = dict(companies=_companies(), waiting=READY.exists(), job=dict(_job) or None)

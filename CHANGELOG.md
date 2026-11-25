@@ -3,6 +3,24 @@
 What changed in each version of Stock Terminal, newest first. The version on your computer is in
 Settings > About. Versions: 1.0.1 = fixes, 1.1.0 = new features.
 
+## 1.1.0 (not released yet)
+
+- Sectors page (under Screener): every sector and industry with its companies, the median valuation, margins,
+  growth and returns, and each company's rank inside its group ("#3/24"). A stock's Overview shows where it
+  ranks in its industry and sector; Sector and Industry in its profile link to these pages.
+- Settings > Data and accounts > Data folder: which folder this copy uses for your data, with a button to open it.
+  A test copy (the code folder) says "TEST" next to the name and in the window title, so it can't be mixed up
+  with the installed app.
+- Ownership tab on the stock page: insider trades from the SEC's Form 4 filings (buys and sales per month, every
+  trade with price and value), the largest institutional holders, and which famous investors (Buffett, Ackman,
+  Burry, ...) hold the stock according to their 13F reports, with what they bought or sold last quarter.
+  A fund without a recent 13F report is listed last and marked "old".
+  A new alert tells you when an insider buys a stock you own or watch.
+- Data from a starter pack or another copy made by an older version gets its ratios recalculated once, in the
+  background, at the next start (this fills the 3/5/10-year growth numbers that the first starter pack lacked).
+- Your own trades (without Trading 212) now also work on the box 3 tax page (amounts in euros, also for a
+  portfolio kept in dollars) and in the Costs tab (the fees on your trades).
+
 ## 1.0.0 (2026-11-25)
 
 The first release: everything built so far, made ready for anyone to install.
