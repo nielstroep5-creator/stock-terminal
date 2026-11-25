@@ -33,6 +33,8 @@ Settings > About. Versions: 1.0.1 = fixes, 1.1.0 = new features.
 - ETFs page without internet: the change column shows the last stored day ("Last day") instead of staying empty.
 - Less small print: the explanations under the Earnings calendar, the Compare chart and some Portfolio tabs sit
   behind a "How to read this" button.
+- Earnings page and Home's "Coming up": US shares in your portfolio now count (they were missing, so the page
+  stayed empty for a portfolio of your own trades).
 - The code is now open source: github.com/nielstroep5-creator/stock-terminal (MIT licence).
 
 ## 1.1.0 (2026-11-25)

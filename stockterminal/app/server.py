@@ -2080,12 +2080,19 @@ def _ticker_events(ts, refresh, days):
 
 
 def _held_tickers():
-    """Tickers of your Trading 212 holdings (US listings only), for the Home calendar."""
+    """Tickers of your holdings (Trading 212 or your own trades; US listings only), for the Home calendar and
+    the Earnings page. US shares have no pf_symbols row (AAPL_US_EQ is AAPL without a lookup)."""
     try:
-        rows = q("SELECT DISTINCT s.yahoo FROM pf_positions p JOIN pf_symbols s ON s.t212_ticker=p.t212_ticker")
+        rows = q("SELECT DISTINCT p.t212_ticker, s.yahoo FROM pf_positions p LEFT JOIN pf_symbols s ON s.t212_ticker=p.t212_ticker")
     except Exception:  # noqa: BLE001  no portfolio tables yet
         return []
-    return [r["yahoo"] for r in rows if r.get("yahoo") and re.fullmatch(r"[A-Z][A-Z0-9\-]{0,6}", r["yahoo"])]
+    out = []
+    for r in rows:
+        us = portfolio.app_ticker(r["t212_ticker"], None)
+        t = _norm_ticker(us) if us else r.get("yahoo")
+        if t and re.fullmatch(r"[A-Z][A-Z0-9\-]{0,6}", t):
+            out.append(t)
+    return list(dict.fromkeys(out))
 
 
 @app.get("/api/coming-up")
