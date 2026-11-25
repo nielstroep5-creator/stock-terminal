@@ -74,6 +74,24 @@ def _upstream():
         return "origin/master"
 
 
+_HOUSEKEEPING = re.compile(r"(WORKING|Merge|Docs?\b|Self-?test|selftest|Build|CI\b|Download page|README|Version \d)", re.I)
+
+
+def _new_notes(up):
+    """The release-note lines (CHANGELOG.md) that the newer code adds: written for users, unlike commit titles."""
+    try:
+        diff = _git("diff", "--unified=0", f"HEAD..{up}", "--", "CHANGELOG.md", timeout=20)
+    except Exception:  # noqa: BLE001
+        return []
+    out = []
+    for line in diff.splitlines():
+        if line.startswith("+- "):
+            out.append(line[3:].strip())
+        elif line.startswith("+  ") and out:          # a note that goes on over more lines
+            out[-1] += " " + line[3:].strip()
+    return out[:12]
+
+
 def _check_git():
     up = _upstream()
     remote = up.split("/", 1)[0]
@@ -82,8 +100,10 @@ def _check_git():
     behind = int(_git("rev-list", "--count", f"HEAD..{up}", timeout=20) or 0)
     changes = []
     if behind:
-        log = _git("log", "--no-merges", "--format=%s", "-n", "20", f"HEAD..{up}", timeout=20)
-        changes = [c for c in log.splitlines() if c and not c.startswith("WORKING")][:12]
+        changes = _new_notes(up)
+        if not changes:            # nothing for users in the release notes: the commit titles, without the housekeeping
+            log = _git("log", "--no-merges", "--format=%s", "-n", "30", f"HEAD..{up}", timeout=20)
+            changes = [c for c in log.splitlines() if c and not _HOUSEKEEPING.match(c)][:12]
     latest = _remote_version(up) or __version__
     target = _git("rev-parse", "--short", up, timeout=10)
     return dict(available=behind > 0, latest=latest, target=target, changes=changes, behind=behind,
