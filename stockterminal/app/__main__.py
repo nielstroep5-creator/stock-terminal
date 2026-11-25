@@ -66,7 +66,8 @@ def main():
         if server.started:
             break
         time.sleep(0.05)
-    window = webview.create_window("Stock Terminal", f"http://127.0.0.1:{port}/", width=1440, height=920,
+    from ..config import FROZEN               # a code copy says so in the title: two copies can't be mixed up
+    window = webview.create_window("Stock Terminal" if FROZEN else "Stock Terminal (test copy)", f"http://127.0.0.1:{port}/", width=1440, height=920,
                                    min_size=(1000, 650))
     from . import server as srv
     srv.close_window = window.destroy          # "Restart now" after an update closes this window

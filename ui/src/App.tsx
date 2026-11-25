@@ -24,6 +24,7 @@ const EtfPage = lazy(() => import('@/pages/Etf').then((m) => ({ default: m.EtfPa
 const EtfsPage = lazy(() => import('@/pages/Etf').then((m) => ({ default: m.EtfsPage })))
 const PortfolioRoute = lazy(() => import('@/pages/portfolio/PortfolioPage').then((m) => ({ default: m.PortfolioRoute })))
 const ScreenerPage = lazy(() => import('@/pages/Screener').then((m) => ({ default: m.ScreenerPage })))
+const SectorsPage = lazy(() => import('@/pages/Sectors').then((m) => ({ default: m.SectorsPage })))
 const TaxPage = lazy(() => import('@/pages/Tax').then((m) => ({ default: m.TaxPage })))
 const WatchlistPage = lazy(() => import('@/pages/Watchlist').then((m) => ({ default: m.WatchlistPage })))
 
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="/earnings/:scope?" element={<EarningsPage />} />
           <Route path="/companies" element={<Navigate to="/screener" replace />} />
           <Route path="/screener" element={<ScreenerPage />} />
+          <Route path="/sectors/:sector?/:industry?" element={<SectorsPage />} />
           <Route path="/data-health" element={<DataHealthPage />} />
           <Route path="/etfs" element={<EtfsPage />} />
           <Route path="/etf/:ticker/:tab?" element={<EtfPage />} />

@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils'
 import type { AccuracyItem, ChartEvents, CompanyInfo, McapCheck, Peer, Peers, Prices, Row, Statements } from '@/pages/stock/types'
 import { Logo } from '@/components/app/Logo'
 import { NewsCard } from '@/components/app/News'
+import { IndustryRankCard, sectorPath } from '@/components/app/IndustryRank'
 
 type Range = Settings['price_range']
 const RANGES: [Range, number, string][] = [
@@ -466,8 +467,8 @@ function About({ info }: { info: CompanyInfo }) {
   const b = info.balance ?? {}
   const fye = c.fiscal_year_end ? new Date(2000, +c.fiscal_year_end.slice(0, 2) - 1, +c.fiscal_year_end.slice(2)).toLocaleString('en-US', { month: 'long', day: 'numeric' }) : '–'
   const facts: [string, ReactNode][] = [
-    ['Sector', c.sector || '–'],
-    ['Industry', c.industry || '–'],
+    ['Sector', c.sector ? <Link key="s" to={sectorPath(c.sector)} className="text-primary hover:underline">{c.sector}</Link> : '–'],
+    ['Industry', c.industry && c.sector ? <Link key="i" to={sectorPath(c.sector, c.industry)} className="text-primary hover:underline">{c.industry}</Link> : c.industry || '–'],
     ['Employees', c.employees ? c.employees.toLocaleString('en-US') : '–'],
     ['Fiscal year ends', fye],
     ['Shares outstanding', b.shares_outstanding ? big(b.shares_outstanding) : '–'],
@@ -747,6 +748,7 @@ export function Overview({ t, info }: { t: string; info: CompanyInfo }) {
       <NewsCard ticker={t} />
       <About info={info} />
       <PeersCard t={t} />
+      <IndustryRankCard t={t} />
       <QualityCard info={info} />
     </>
   )

@@ -215,6 +215,7 @@ def server():
         # the Screener page, from stored data only. Its first answer builds the table of every company (about
         # 8 s for the S&P 500, much longer while the PC is busy starting the app), so it gets more time
         get("/api/screener", timeout=180)
+        get("/api/sectors")                  # the Sectors page, from the same table
         for wl in get("/api/watchlists").json()["lists"][:3]:   # your watchlists, from stored data only
             get(f"/api/watchlists/{wl['id']}/rows")
             get(f"/api/watchlists/{wl['id']}/events")
@@ -354,7 +355,7 @@ def own_trades():
     broker CSV with European numbers, day/month dates and lines that are not trades."""
     import sqlite3
     from . import db as dbm
-    from . import own, trading212
+    from . import own, tax, trading212
     conn = sqlite3.connect(":memory:")
     conn.executescript(dbm.SCHEMA)
     dbm._migrate(conn)
@@ -382,6 +383,16 @@ def own_trades():
         assert abs(realised - 39.8) < 0.01, f"realised {realised}"
         assert [round(x, 2) for x, in conn.execute("SELECT amount FROM pf_dividends ORDER BY paid_on")] == [5.0, 4.0], "dividends"
         assert trading212.meta(conn)["source"] == "own" and conn.execute("SELECT yahoo FROM pf_symbols WHERE t212_ticker='ASML.AS'").fetchone()
+        # the box 3 page on these trades: in euros (the portfolio is in dollars), no cash, Yahoo's gross dividends
+        t = tax.build(conn)
+        Y = t["years"][2024]
+        assert t["source"] == "own" and t["account_currency"] == "EUR" and not t["withheld_known"], t
+        assert abs(Y["realised_total"] - 39.8 * 0.9) < 0.01 and abs(Y["dividends"]["gross"] - 9 * 0.9) < 0.01, Y
+        assert Y["cash_start"] == 0 and Y["interest"] == 0 and Y["dividends"]["unknown_gross"] == 0, Y
+        assert [r["country"] for r in Y["dividends_by_country"]] == ["United States"], Y["dividends_by_country"]
+        for fmt in ("csv", "pdf"):
+            name, raw = tax.export(2024, fmt, {}, conn)
+            assert "own trades" in name and raw and (fmt == "pdf" or "Trading 212" not in raw.decode("utf-8")), name
         rows, skipped, order = own.parse_csv("Datum;Ticker;Actie;Aantal;Koers;Valuta;Kosten\n"
                                              "15/03/2024;AAPL;Koop;3;1.234,50;USD;0,50\n02/04/2024;AAPL;Dividend;;;USD;\n"
                                              "20/04/2024;AAPL;Verkoop;1;180;USD;\n")
@@ -398,7 +409,7 @@ def own_trades():
         assert not conn.execute("SELECT 1 FROM pf_positions").fetchone() and "source" not in trading212.meta(conn), "empty again"
     finally:
         trading212.status = real_status
-    return "split, average cost, euro share, dividends, CSV import (twice), empty again ok"
+    return "split, average cost, euro share, dividends, box 3 in euros, CSV import (twice), empty again ok"
 
 
 def news_items():
@@ -413,6 +424,91 @@ def news_items():
     assert b["title"] == "Old shape" and b["published"].startswith("2025-11-21"), b
     assert news.item({"title": "x", "link": "javascript:alert(1)"}) is None and news.item({"content": {"title": "no link"}}) is None, "unsafe links"
     return "both Yahoo shapes read, unsafe links left out"
+
+
+FORM4 = b"""<?xml version="1.0"?>
+<ownershipDocument><schemaVersion>X0508</schemaVersion><documentType>4</documentType>
+<periodOfReport>2026-11-18</periodOfReport><aff10b5One>0</aff10b5One>
+<issuer><issuerCik>0000320193</issuerCik><issuerName>Apple Inc.</issuerName><issuerTradingSymbol>AAPL</issuerTradingSymbol></issuer>
+<reportingOwner><reportingOwnerId><rptOwnerCik>0001214156</rptOwnerCik><rptOwnerName>COOK TIMOTHY D</rptOwnerName></reportingOwnerId>
+<reportingOwnerRelationship><isDirector>1</isDirector><isOfficer>1</isOfficer><officerTitle>Chief Executive Officer</officerTitle></reportingOwnerRelationship></reportingOwner>
+<nonDerivativeTable>
+<nonDerivativeTransaction><securityTitle><value>Common Stock</value></securityTitle><transactionDate><value>2026-11-18</value></transactionDate>
+<transactionCoding><transactionFormType>4</transactionFormType><transactionCode>P</transactionCode></transactionCoding>
+<transactionAmounts><transactionShares><value>1000</value></transactionShares><transactionPricePerShare><value>150.00</value></transactionPricePerShare>
+<transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode></transactionAmounts>
+<postTransactionAmounts><sharesOwnedFollowingTransaction><value>5000</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+<ownershipNature><directOrIndirectOwnership><value>D</value></directOrIndirectOwnership></ownershipNature></nonDerivativeTransaction>
+<nonDerivativeTransaction><securityTitle><value>Common Stock</value></securityTitle><transactionDate><value>2026-11-18</value></transactionDate>
+<transactionCoding><transactionCode>P</transactionCode></transactionCoding>
+<transactionAmounts><transactionShares><value>1000</value></transactionShares><transactionPricePerShare><value>152.00</value></transactionPricePerShare>
+<transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode></transactionAmounts>
+<postTransactionAmounts><sharesOwnedFollowingTransaction><value>6000</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+<ownershipNature><directOrIndirectOwnership><value>D</value></directOrIndirectOwnership></ownershipNature></nonDerivativeTransaction>
+<nonDerivativeTransaction><securityTitle><value>Common Stock</value></securityTitle><transactionDate><value>2026-11-19</value></transactionDate>
+<transactionCoding><transactionCode>F</transactionCode></transactionCoding>
+<transactionAmounts><transactionShares><value>300</value></transactionShares><transactionPricePerShare><value>151</value></transactionPricePerShare>
+<transactionAcquiredDisposedCode><value>D</value></transactionAcquiredDisposedCode></transactionAmounts>
+<postTransactionAmounts><sharesOwnedFollowingTransaction><value>5700</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+<ownershipNature><directOrIndirectOwnership><value>D</value></directOrIndirectOwnership></ownershipNature></nonDerivativeTransaction>
+</nonDerivativeTable>
+<footnotes><footnote id="F1">Weighted average price.</footnote></footnotes></ownershipDocument>"""
+
+INFOTABLE = b"""<?xml version="1.0"?><informationTable xmlns="http://www.sec.gov/edgar/document/thirteenf/informationtable">
+<infoTable><nameOfIssuer>APPLE INC</nameOfIssuer><titleOfClass>COM</titleOfClass><cusip>037833100</cusip><value>60000000000</value>
+<shrsOrPrnAmt><sshPrnamt>300000000</sshPrnamt><sshPrnamtType>SH</sshPrnamtType></shrsOrPrnAmt><investmentDiscretion>DFND</investmentDiscretion></infoTable>
+<infoTable><nameOfIssuer>APPLE INC</nameOfIssuer><titleOfClass>COM</titleOfClass><cusip>037833100</cusip><value>2000000000</value>
+<shrsOrPrnAmt><sshPrnamt>10000000</sshPrnamt><sshPrnamtType>SH</sshPrnamtType></shrsOrPrnAmt><investmentDiscretion>DFND</investmentDiscretion></infoTable>
+<infoTable><nameOfIssuer>APPLE INC</nameOfIssuer><titleOfClass>CALL</titleOfClass><cusip>037833100</cusip><value>5</value>
+<shrsOrPrnAmt><sshPrnamt>1</sshPrnamt><sshPrnamtType>SH</sshPrnamtType></shrsOrPrnAmt><putCall>Call</putCall></infoTable>
+<infoTable><nameOfIssuer>BANK AMER CORP</nameOfIssuer><titleOfClass>COM</titleOfClass><cusip>060505104</cusip><value>38000000000</value>
+<shrsOrPrnAmt><sshPrnamt>700000000</sshPrnamt><sshPrnamtType>SH</sshPrnamtType></shrsOrPrnAmt></infoTable>
+</informationTable>"""
+
+
+def ownership():
+    """Insider trades and big investors (in memory, no internet): a Form 4 is read (a buy in two parts is one buy at the
+    average price, the CEO's name and role), the insider-buy alert, a 13F table (classes added up, options left out,
+    values in dollars), CUSIP check digits and the match of a famous investor's holding to the stock."""
+    import datetime as dt
+    import sqlite3
+    from . import alerts as al, db as dbm, insiders, investors
+    conn = sqlite3.connect(":memory:")
+    conn.executescript(dbm.SCHEMA)
+    dbm._migrate(conn)
+    got = insiders.parse(FORM4)
+    assert (got["owner"], got["role"], got["issuer_cik"], len(got["trades"])) == ("Timothy D Cook", "CEO, Director", 320193, 3), got
+    assert insiders.raw_doc("xslF345X05/wk-form4_1.xml") == "wk-form4_1.xml" and insiders.raw_doc("x.txt") is None
+    insiders.store(conn, 320193, "0001-26-000001", "2026-11-20", got)
+    s = insiders.summary(conn, 320193, today=dt.date(2026, 11, 24))
+    buy = [g for g in s["trades"] if g["code"] == "P"]
+    assert len(buy) == 1 and buy[0]["shares"] == 2000 and abs(buy[0]["price"] - 151) < 1e-9 and buy[0]["value"] == 302000, buy
+    assert abs(buy[0]["change"] - 0.5) < 1e-9 and s["buys_12m"]["value"] == 302000 and s["sells_12m"]["n"] == 0, s["buys_12m"]
+    assert s["months"][-1]["buy"] == 302000 and len(s["months"]) == 25, s["months"][-2:]
+    new = []
+    add = al._adder(conn, {}, dt.datetime(2026, 11, 24, 7, 0), new)
+    t = dict(t212_ticker="AAPL_US_EQ", sid="AAPL", ticker="AAPL", name="Apple", origin="portfolio", etf=False)
+    rules = dict(al.DEFAULTS)
+    al.insider_alerts(conn, t, 320193, rules, "2026-11-24", add)
+    al.insider_alerts(conn, t, 320193, rules, "2026-11-24", add)
+    assert len(new) == 1 and new[0]["title"] == "Apple: Timothy D Cook bought $302K" and "+50% on what they had" in new[0]["body"], new
+    al.insider_alerts(conn, t, 320193, dict(rules, ins_min=500000), "2026-11-25", add)
+    al.insider_alerts(conn, t, 320193, rules, "2026-12-10", add)
+    assert len(new) == 1, "a small or old buy alerted"
+    assert investors.cusip_ok("037833100") and investors.cusip_ok("02079K305") and not investors.cusip_ok("037833101")
+    assert investors.cusips_in(b"<issuerCusip>037833100</issuerCusip>") == ["037833100"]
+    assert investors.cusips_in(b"CUSIP No. 037833 10 0 ...") == ["037833100"], investors.cusips_in(b"CUSIP No. 037833 10 0 ...")
+    assert investors.norm("Bank of America Corp") == investors.norm("BANK AMER CORP") == "BANK AMERICA"
+    rows = investors.parse_13f(INFOTABLE, "2026-11-14")
+    assert rows["037833100"]["shares"] == 310_000_000 and rows["037833100"]["value"] == 62e9 and len(rows) == 2, rows
+    assert investors.parse_13f(INFOTABLE, "2022-11-14")["060505104"]["value"] == 38e12, "values in thousands before 2023"
+    for accn, period, aapl in (("q3", "2026-09-30", 310e6), ("q2", "2026-06-30", 400e6)):
+        conn.execute("INSERT INTO inv_filings VALUES (?,?,?,?,?,?)", (accn, 1067983, period, "2026-11-14", 100e9, 2))
+        conn.execute("INSERT INTO inv_holdings VALUES (?,?,?,?,?,?)", (accn, "037833100", "APPLE INC", "COM", aapl, aapl * 200))
+    conn.execute("INSERT INTO issuer_cusips VALUES (320193, '[\"037833100\"]', ?)", (dt.date.today().isoformat(),))
+    f = investors.famous_for(conn, 320193, ["Apple Inc."])["holders"]
+    assert len(f) == 1 and f[0]["investor"] == "Warren Buffett" and abs(f[0]["change"] + 0.225) < 1e-9 and abs(f[0]["weight"] - 0.62) < 1e-9, f
+    return "Form 4 read and grouped, insider-buy alert once, 13F table, CUSIPs, famous investor matched"
 
 
 def logos():
@@ -532,6 +628,31 @@ def earnings_calendar():
     return "next date, expected date, surprises, beat count, price reaction"
 
 
+def sector_pages():
+    """Sector and industry pages with made-up companies: medians, ranks (a loss has no P/E rank), groups."""
+    from . import sectors
+    rows = [dict(ticker="A", sector="Tech", industry="Chips", market_cap=300, pe=30, operating_margin=0.4),
+            dict(ticker="B", sector="Tech", industry="Chips", market_cap=200, pe=-5, operating_margin=0.1),
+            dict(ticker="C", sector="Tech", industry="Chips", market_cap=100, pe=10, operating_margin=0.2),
+            dict(ticker="D", sector="Tech", industry="Software", market_cap=50, pe=20, operating_margin=0.3),
+            dict(ticker="E", sector=None, industry=None, market_cap=10, pe=None, operating_margin=None)]
+    ov = sectors.overview(rows)
+    assert [s["name"] for s in ov["sectors"]] == ["Tech", "Other"], ov["sectors"]
+    tech = ov["sectors"][0]
+    assert tech["count"] == 4 and tech["industries"] == 2 and tech["market_cap"] == 650, tech
+    assert tech["med"]["pe"] == 20 and abs(tech["med"]["operating_margin"] - 0.25) < 1e-9, tech["med"]
+    g = sectors.group(rows, "Tech", "Chips")
+    rk = {c["ticker"]: c["ranks"] for c in g["companies"]}
+    assert rk["C"]["pe"] == [1, 2] and rk["A"]["pe"] == [2, 2] and "pe" not in rk["B"], rk
+    assert rk["A"]["operating_margin"] == [1, 3] and g["siblings"] == ["Chips", "Software"], g
+    assert sectors.group(rows, "Tech")["industries"][0]["name"] == "Chips"
+    assert sectors.group(rows, "Nope") is None
+    p = sectors.position(rows, "d")
+    item = next(x for x in p["items"] if x["key"] == "pe")
+    assert p["industry_n"] == 1 and item["sec_rank"] == [2, 3] and item["ind_rank"] is None, p
+    return "medians, ranks, losses left out, sectors and industries"
+
+
 def main():
     print("Stock Terminal self-test")
     check("Python files compile", compile_all)
@@ -545,7 +666,9 @@ def main():
     check("data rules (bugs fixed before)", data_rules)
     check("alert checks (made-up prices)", alert_checks)
     check("news per stock (Yahoo shapes)", news_items)
+    check("insider trades and big investors (made-up filings)", ownership)
     check("earnings page (made-up results)", earnings_calendar)
+    check("sector pages (made-up companies)", sector_pages)
     check("own trades without Trading 212 (made-up prices)", own_trades)
     check("version and release notes agree", version_notes)
     check("company data from another copy (swap at start)", data_swap)

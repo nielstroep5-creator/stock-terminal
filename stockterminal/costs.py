@@ -3,12 +3,14 @@
 - Trade costs come from each fill as Trading 212 booked it (pf_trades.raw: walletImpact.taxes), by kind:
   currency conversion, French transaction tax, UK stamp duty, FINRA fee, ... in your account currency.
   Fees that are not tied to a trade (pf_cash, type FEE) are listed as "other fees".
+- Your own trades (own.py): the fees you filled in or imported per trade, in your own currency (own.rebuild
+  books them the same way, as a transaction fee). There is no account behind them, so no other fees.
 - ETF costs: the yearly expense ratio (TER) from Yahoo times what you hold now. TER is not charged
   separately: it is taken from the fund's value, so it is already inside your return.
 """
 import json
 
-from . import db, portfolio
+from . import db, portfolio, trading212
 
 TAX_NAMES = {"CURRENCY_CONVERSION_FEE": "Currency conversion", "FRENCH_TRANSACTION_TAX": "French transaction tax",
              "STAMP_DUTY": "UK stamp duty", "STAMP_DUTY_RESERVE_TAX": "UK stamp duty (reserve)", "PTM_LEVY": "UK PTM levy",
@@ -31,7 +33,8 @@ def build(refresh=False):
     conn = db.connect()
     try:
         by_kind, by_year, by_holding, other_cur = {}, {}, {}, {}
-        traded, n_trades = 0.0, 0
+        traded, n_trades, with_fees = 0.0, 0, 0
+        own = trading212.meta(conn).get("source") == "own"
         hide = portfolio.hidden()
         for name, t212, day, net, raw in conn.execute(
                 """SELECT name, t212_ticker, substr(filled_at, 1, 4), net_value, raw FROM pf_trades
@@ -42,11 +45,13 @@ def build(refresh=False):
                 taxes = ((json.loads(raw or "{}").get("fill") or {}).get("walletImpact") or {}).get("taxes") or []
             except ValueError:
                 taxes = []
+            with_fees += any(tx.get("quantity") for tx in taxes)
             for tx in taxes:
                 amount, cur = abs(tx.get("quantity") or 0), tx.get("currency") or acc
                 if not amount:
                     continue
-                kind = TAX_NAMES.get(tx.get("name"), (tx.get("name") or "Other").replace("_", " ").capitalize())
+                kind = "Broker fees" if own else \
+                    TAX_NAMES.get(tx.get("name"), (tx.get("name") or "Other").replace("_", " ").capitalize())
                 if cur != acc:                              # rare: charged in another currency, listed apart
                     other_cur.setdefault(cur, 0)
                     other_cur[cur] += amount
@@ -77,6 +82,7 @@ def build(refresh=False):
         fund_cost = sum(f["yearly"] or 0 for f in funds)
         return dict(
             account_currency=acc, other_currency=page.get("other_currency"), fx=page.get("fx"),
+            source="own" if own else "t212", trades_with_fees=with_fees,
             total=total, trades=n_trades, traded=traded, pct_of_traded=total / traded if traded else None,
             by_kind=sorted([dict(name=k, amount=v) for k, v in by_kind.items()], key=lambda r: -r["amount"]),
             by_year=sorted([dict(year=k, amount=v) for k, v in by_year.items()], key=lambda r: r["year"], reverse=True),

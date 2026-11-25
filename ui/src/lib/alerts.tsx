@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bell, Briefcase, CalendarClock, ChartColumn, CircleDollarSign, MoveVertical, Search, Target } from 'lucide-react'
+import { Bell, Briefcase, CalendarClock, ChartColumn, CircleDollarSign, MoveVertical, Search, Target, UserCheck } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useCallback } from 'react'
 import { api } from '@/lib/api'
@@ -31,12 +31,12 @@ export type AlertRules = { move_pct: number; move_etf_pct: number; move_etf_on: 
 
 export const KIND_ICON: Record<string, LucideIcon> = {
   limit: Target, move: MoveVertical, portfolio: Briefcase, earnings_soon: CalendarClock, earnings: ChartColumn,
-  dividend: CircleDollarSign, analysts: Search,
+  dividend: CircleDollarSign, analysts: Search, insider: UserCheck,
 }
 export const kindIcon = (k: string) => KIND_ICON[k] ?? Bell
 
 /** What a stock's alerts can be about, besides price limits (prefs "|off" skips, "|on" adds for other stocks). */
-export const STOCK_KINDS: [string, string][] = [['move', 'Big moves'], ['earnings', 'Results'], ['dividend', 'Dividend'], ['analysts', 'Analysts']]
+export const STOCK_KINDS: [string, string][] = [['move', 'Big moves'], ['earnings', 'Results'], ['dividend', 'Dividend'], ['analysts', 'Analysts'], ['insider', 'Insider buys']]
 
 /** Where an alert takes you: the ETF or stock page, or the holding page for a holding without a stock page. */
 export function alertLink(i: AlertItem): string | null {

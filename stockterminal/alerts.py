@@ -39,13 +39,14 @@ DEFAULTS = dict(
     earn_quiet=True,                                                      # results reach the phone in quiet hours too
     div_on=True, div_pct=1.0, div_up=False, div_cut_push=True, div_up_push=False,       # dividend per share
     an_on=True, an_eps=5.0, an_target=10.0, an_rec=True, an_push=True,   # analysts (30 days); phone: big ones only
-    wl_on=True, wl_move=True, wl_earn=True, wl_div=False, wl_an=True,   # watchlist tickers (buy below = price limit)
+    ins_on=True, ins_min=10000.0, ins_push=True,                          # an insider bought shares (SEC Form 4)
+    wl_on=True, wl_move=True, wl_earn=True, wl_div=False, wl_an=True, wl_ins=False,   # watchlist tickers (buy below = price limit)
     ntfy_topic="", ntfy_server="https://ntfy.sh", quiet_on=True, quiet_from="22:00", quiet_to="07:00",
     sum_daily=False, sum_weekly=False, sum_weekday=0,                     # morning summary to the phone (summary.py)
 )
 KINDS = {"limit": "Price limit", "move": "Daily move", "portfolio": "Portfolio move", "earnings_soon": "Results coming",
-         "earnings": "Results", "dividend": "Dividend", "analysts": "Analysts"}
-STOCK_KINDS = ("limit", "move", "earnings", "dividend", "analysts")   # what can be skipped per stock
+         "earnings": "Results", "dividend": "Dividend", "analysts": "Analysts", "insider": "Insider buy"}
+STOCK_KINDS = ("limit", "move", "earnings", "dividend", "analysts", "insider")   # what can be skipped per stock
 ALWAYS_PUSH = ("limit", "earnings")         # not held back by "one phone message per stock per day"
 REC = [(1.5, "strong buy"), (2.5, "buy"), (3.5, "hold"), (4.5, "sell"), (9, "strong sell")]
 LIVE_NY = ("02:30", "16:15")                # check_live: New York time, covers Europe's open to the US close
@@ -535,6 +536,47 @@ def _analysts(conn, t, e, rules, today, add):
                 1 if better else -1, rules["an_push"])
 
 
+def _usd_short(v):
+    v = float(v or 0)
+    for lim, unit in ((1e9, "B"), (1e6, "M"), (1e3, "K")):
+        if abs(v) >= lim:
+            return f"${v / lim:,.1f}{unit}".replace(".0" + unit, unit)
+    return f"${v:,.0f}"
+
+
+def insider_alerts(conn, t, cik, rules, today, add, since_days=7):
+    """An insider (director, officer, 10% owner) bought shares on the open market (Form 4 filed in the last week)."""
+    from . import insiders
+    since = (dt.date.fromisoformat(today) - dt.timedelta(days=since_days)).isoformat()
+    for g in insiders.recent_buys(conn, cik, since, rules["ins_min"]):
+        who = g["owner"] or "An insider"
+        role = f" ({g['role']})" if g.get("role") else ""
+        price = f" at {_price(g['price'], 'USD')}" if g.get("price") else ""
+        stake = ""
+        if g.get("owned_after") and g["shares"] and g["owned_after"] > g["shares"]:
+            stake = f", {g['shares'] / (g['owned_after'] - g['shares']):+.0%} on what they had".replace("-", "−")
+        when = f" on {_day(g['date'])}" if g.get("date") else ""
+        add("insider", t, f"{g['accn']}|{who}", f"{t['name']}: {who} bought {_usd_short(g['value'])}",
+            f"{who}{role} bought {g['shares']:,.0f} shares{price}{when}{stake}. Filed with the SEC {_day(g['filed'])}.",
+            2, rules["ins_push"])
+
+
+def _insider_check(conn, t, rules, today, add, refresh, problems):
+    if not t.get("ticker"):
+        return
+    row = conn.execute("SELECT cik FROM companies WHERE ticker=?", (t["ticker"],)).fetchone()
+    if not row or not row[0]:
+        return
+    if refresh:                                        # new Form 4s of the last two weeks (one small request + each new one)
+        from . import insiders
+        try:
+            insiders.update(conn, row[0], since=(dt.date.fromisoformat(today) - dt.timedelta(days=14)).isoformat(), max_new=15)
+        except Exception as e:  # noqa: BLE001  the SEC could not be reached: what is stored is checked
+            if not any(p.startswith("insider trades") for p in problems):
+                problems.append(f"insider trades not updated (SEC): {str(e)[:120]}")
+    insider_alerts(conn, t, row[0], rules, today, add)
+
+
 # ------------------------------------------------------------------------------------------ run
 def _kinds_on(t, rules, per):
     """Which checks run for this stock: the rules, the watchlist rules, and the stock's own settings."""
@@ -545,9 +587,11 @@ def _kinds_on(t, rules, per):
               move=rules["move_on"] and (not wl or rules["wl_move"]) and (not other or "move" in extra),
               earn=rules["earn_on"] and (not wl or rules["wl_earn"]) and (not other or "earnings" in extra),
               div=rules["div_on"] and (not wl or rules["wl_div"]) and (not other or "dividend" in extra),
-              an=rules["an_on"] and (not wl or rules["wl_an"]) and (not other or "analysts" in extra) and not t["etf"])
+              an=rules["an_on"] and (not wl or rules["wl_an"]) and (not other or "analysts" in extra) and not t["etf"],
+              ins=rules["ins_on"] and (not wl or rules["wl_ins"]) and (not other or "insider" in extra) and not t["etf"])
     off = _off(cfg)
-    for k, kind in (("limit", "limit"), ("move", "move"), ("earn", "earnings"), ("div", "dividend"), ("an", "analysts")):
+    for k, kind in (("limit", "limit"), ("move", "move"), ("earn", "earnings"), ("div", "dividend"), ("an", "analysts"),
+                    ("ins", "insider")):
         if kind in off:
             on[k] = False
     return on
@@ -631,6 +675,8 @@ def check(refresh=False, now=None, say=print):
                             _dividend(t, e, rules, today, add)
                         if on["an"]:
                             _analysts(conn, t, e, rules, today, add)
+                if on["ins"]:
+                    _insider_check(conn, t, rules, today, add, refresh, problems)
             except Exception as ex:  # noqa: BLE001  one stock never stops the rest
                 problems.append(f"{t['name']}: {ex}")
             conn.commit()

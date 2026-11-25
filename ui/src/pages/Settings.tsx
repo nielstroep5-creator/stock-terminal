@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { UpdateField } from '@/components/app/AppUpdate'
-import { DataField } from '@/components/app/DataSetup'
+import { DataField, DataFolderField } from '@/components/app/DataSetup'
 import { ReportField } from '@/components/app/Report'
 import { Card, Page } from '@/components/app/Page'
 import { Button } from '@/components/ui/button'
@@ -44,6 +44,7 @@ const ROWS: Row[] = [
   { id: 'compare_years', section: 'financials', name: 'Years in Compare', desc: "Each company's own fiscal year, or January to December for all." },
   { id: 'daily_update', section: 'data', name: 'Daily update at 07:00', desc: 'New prices, filings and analyst data every morning. Off: the scheduled update skips its run.' },
   { id: 'earnings_watch', section: 'data', name: 'Watch for new results', desc: "On a company's results day, look every 5 minutes for its results and load the official numbers as soon as they are filed. Works with the app closed; the computer has to be on." },
+  { id: 'data_folder', section: 'data', name: 'Data folder', desc: 'Where this copy keeps your companies, portfolio, watchlists and settings. Another copy on this computer (installed app or test copy) has its own folder.' },
   { id: 'company_data', section: 'data', name: 'Company data', desc: 'Get the S&P 500 in one go (starter pack), or use the data of another Stock Terminal copy on this computer.' },
   { id: 'sec_email', section: 'data', name: 'Contact email for the SEC', desc: 'The SEC asks for one on every download. It stays on this computer.' },
   { id: 't212', section: 'data', name: 'Trading 212', desc: 'Connect your account to see your portfolio.' },
@@ -331,6 +332,8 @@ function Control({ id }: { id: string }) {
           ]}
         />
       )
+    case 'data_folder':
+      return <DataFolderField />
     case 'company_data':
       return <DataField />
     case 'sec_email':

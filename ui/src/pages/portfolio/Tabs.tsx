@@ -1,7 +1,7 @@
 import { CalendarDays, ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Card } from '@/components/app/Page'
 import { Empty, H2, Kv, Stat } from '@/components/app/bits'
 import { useChartColors } from '@/components/chart/EChart'
@@ -525,7 +525,8 @@ function CorrMatrix({ R }: { R: NonNullable<Analysis['risk']> }) {
 
 /* ------------------------------------------------------------------ costs (stockterminal/costs.py) */
 type Costs = {
-  account_currency: string; other_currency: string | null; fx: Fx; total: number; trades: number; traded: number; pct_of_traded: N
+  account_currency: string; other_currency: string | null; fx: Fx; source: 'own' | 't212'; trades_with_fees: number
+  total: number; trades: number; traded: number; pct_of_traded: N
   by_kind: { name: string; amount: number }[]; by_year: { year: string; amount: number }[]; by_holding: { name: string; amount: number }[]
   other_currency_fees: { amount: number; currency: string }[]; cash_fees: { amount: number; currency: string }[]
   funds: { name: string; t212_ticker: string; value: number; ter: N; yearly: number }[]; fund_cost: number; fund_cost_pct: N; funds_missing: string[]
@@ -539,6 +540,7 @@ export function CostsTab() {
   const acc = d.account_currency
   const otherFees = d.cash_fees.filter((f) => f.currency === acc).reduce((a, f) => a + f.amount, 0)
   const conv = d.by_kind.find((k) => k.name === 'Currency conversion')
+  const own = d.source === 'own' // your own trades: only the fees you filled in, no account fees
   const list = (rows: { label: string; amount: number }[], more = 0) =>
     rows.length ? (
       <>
@@ -550,14 +552,22 @@ export function CostsTab() {
     )
   return (
     <div className="flex flex-col gap-4">
-      <Card className="grid grid-cols-2 gap-x-6 gap-y-4 p-4 md:grid-cols-4">
-        <Stat label="Trade costs" tip="Everything Trading 212 booked on your trades: currency conversion, transaction taxes and fees. Trading 212 itself charges no commission." value={m(d.total)} sub={has(d.pct_of_traded) ? `${(d.pct_of_traded * 100).toFixed(2)}% of the ${m(d.traded, 0)} you traded` : 'no trades yet'} />
-        <Stat label="Currency conversion" tip="Trading 212 charges a fee each time it converts your money into another currency, e.g. euros into dollars for a US share." value={m(conv ? conv.amount : 0)} sub="buying or selling in another currency" />
-        <Stat label="ETF costs per year" tip="The yearly expense ratio (TER) of each ETF times what you hold. Not charged separately: the fund takes it from its value, so it is already in your return." value={m(d.fund_cost)} sub={has(d.fund_cost_pct) ? `${(d.fund_cost_pct * 100).toFixed(3)}% of your holdings` : ''} />
-        <Stat label="Other fees" tip="Fees Trading 212 booked apart from trades, e.g. on deposits." value={m(otherFees)} sub="not tied to a trade" />
-      </Card>
-      <div className="grid items-start gap-4 lg:grid-cols-3">
-        <Card className="p-4"><H2>By kind</H2>{list(d.by_kind.map((x) => ({ label: x.name, amount: x.amount })))}</Card>
+      {own ? (
+        <Card className="grid grid-cols-2 gap-x-6 gap-y-4 p-4 md:grid-cols-4">
+          <Stat label="Trade costs" tip="The fees you filled in with your trades, or that came with your broker's CSV: commission, transaction taxes, currency conversion. A trade without fees counts as free." value={m(d.total)} sub={has(d.pct_of_traded) ? `${(d.pct_of_traded * 100).toFixed(2)}% of the ${m(d.traded, 0)} you traded` : 'no trades yet'} />
+          <Stat label="Per trade" tip="Your trade costs divided by the trades that have fees." value={m(d.trades_with_fees ? d.total / d.trades_with_fees : 0)} sub={`${d.trades_with_fees} of ${d.trades} ${d.trades === 1 ? 'trade has' : 'trades have'} fees`} />
+          <Stat label="ETF costs per year" tip="The yearly expense ratio (TER) of each ETF times what you hold. Not charged separately: the fund takes it from its value, so it is already in your return." value={m(d.fund_cost)} sub={has(d.fund_cost_pct) ? `${(d.fund_cost_pct * 100).toFixed(3)}% of your holdings` : ''} />
+        </Card>
+      ) : (
+        <Card className="grid grid-cols-2 gap-x-6 gap-y-4 p-4 md:grid-cols-4">
+          <Stat label="Trade costs" tip="Everything Trading 212 booked on your trades: currency conversion, transaction taxes and fees. Trading 212 itself charges no commission." value={m(d.total)} sub={has(d.pct_of_traded) ? `${(d.pct_of_traded * 100).toFixed(2)}% of the ${m(d.traded, 0)} you traded` : 'no trades yet'} />
+          <Stat label="Currency conversion" tip="Trading 212 charges a fee each time it converts your money into another currency, e.g. euros into dollars for a US share." value={m(conv ? conv.amount : 0)} sub="buying or selling in another currency" />
+          <Stat label="ETF costs per year" tip="The yearly expense ratio (TER) of each ETF times what you hold. Not charged separately: the fund takes it from its value, so it is already in your return." value={m(d.fund_cost)} sub={has(d.fund_cost_pct) ? `${(d.fund_cost_pct * 100).toFixed(3)}% of your holdings` : ''} />
+          <Stat label="Other fees" tip="Fees Trading 212 booked apart from trades, e.g. on deposits." value={m(otherFees)} sub="not tied to a trade" />
+        </Card>
+      )}
+      <div className={cn('grid items-start gap-4', own ? 'lg:grid-cols-2' : 'lg:grid-cols-3')}>
+        {!own && <Card className="p-4"><H2>By kind</H2>{list(d.by_kind.map((x) => ({ label: x.name, amount: x.amount })))}</Card>}
         <Card className="p-4"><H2>By year</H2>{list(d.by_year.map((x) => ({ label: x.year, amount: x.amount })))}</Card>
         <Card className="p-4"><H2>By holding</H2>{list(d.by_holding.slice(0, 10).map((x) => ({ label: x.name, amount: x.amount })), d.by_holding.length - 10)}</Card>
       </div>
@@ -580,7 +590,14 @@ export function CostsTab() {
         )}
       </Card>
       <Note>
-        Trade costs as Trading 212 booked them on each trade, in {acc}{cur !== acc ? `, converted to ${cur} at today's rate` : ''}.{' '}
+        {own ? (
+          <>
+            Trade costs are the fees you filled in per trade (add or change them on the <Link to="/portfolio/trades" className="font-medium text-primary hover:underline">My trades</Link> tab), converted to {acc} at that day's rate
+            {cur !== acc ? ` and shown in ${cur} at today's rate` : ''}. Your trades don't say what your broker charged apart from trades (account or custody fees).{' '}
+          </>
+        ) : (
+          <>Trade costs as Trading 212 booked them on each trade, in {acc}{cur !== acc ? `, converted to ${cur} at today's rate` : ''}.{' '}</>
+        )}
         {d.other_currency_fees.length ? `Also charged in another currency: ${d.other_currency_fees.map((f) => cash(f.amount, f.currency)).join(', ')}. ` : ''}
         ETF costs: the expense ratio from Yahoo{d.funds_missing.length ? ` (not found for ${d.funds_missing.join(', ')})` : ''}. Dividend tax withheld abroad is not a cost here; it belongs with taxes.
       </Note>

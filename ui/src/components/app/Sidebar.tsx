@@ -1,8 +1,10 @@
 import { PanelLeftClose, PanelLeftOpen, SlidersHorizontal } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link, useLocation } from 'react-router-dom'
 import { Hint } from '@/components/ui/tooltip'
+import { api } from '@/lib/api'
 import { isActive, NAV } from '@/lib/nav'
 import { useSettings } from '@/lib/settings'
 import { cn } from '@/lib/utils'
@@ -53,6 +55,8 @@ export function Sidebar() {
   const collapsed = choice ? choice === 'closed' : narrow
   const Toggle = collapsed ? PanelLeftOpen : PanelLeftClose
 
+  const about = useQuery({ queryKey: ['about-data'], queryFn: () => api.get<{ kind: string }>('/api/about'), staleTime: Infinity })
+  const testCopy = about.data?.kind === 'test copy'
   return (
     <aside
       className={cn(
@@ -60,9 +64,14 @@ export function Sidebar() {
         collapsed ? 'w-[57px]' : 'w-52',
       )}
     >
-      <Link to="/" className={cn('mb-3 flex h-9 items-center gap-2.5 px-2 text-[15px] font-bold', collapsed && 'justify-center px-0')}>
+      <Link to="/" className={cn('mb-3 flex h-9 items-center gap-2 whitespace-nowrap px-2 text-[15px] font-bold', collapsed && 'justify-center px-0')}>
         <img src="/static/logo.svg" alt="" className="size-6 shrink-0" />
         {!collapsed && 'Stock Terminal'}
+        {!collapsed && testCopy && (
+          <Hint label="This is the test copy (code folder), not the installed app. Its data is separate: see Settings, Data folder.">
+            <span className="rounded border border-flag/50 bg-flag/10 px-1 py-px text-[10px] font-semibold text-flag">TEST</span>
+          </Hint>
+        )}
       </Link>
       <nav aria-label="Main" className="flex flex-col gap-0.5">
         {NAV.map((n) => (

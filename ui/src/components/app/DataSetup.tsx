@@ -134,6 +134,34 @@ export function DataSetupBody({ info, onDone }: { info: DataInfo; onDone?: () =>
   )
 }
 
+type About = { version: string; data_dir: string; imported: { at: string; source: string } | null; kind: 'installed app' | 'test copy'; window: boolean }
+
+/** Settings > Data and accounts > Data folder: which folder this copy reads and writes, so two copies on one
+    computer (the installed app and a test copy) can't be mixed up. */
+export function DataFolderField() {
+  const q = useQuery({ queryKey: ['about-data'], queryFn: () => api.get<About>('/api/about'), staleTime: Infinity })
+  const open = useMutation({ mutationFn: () => api.post<{ opened: boolean }>('/api/data/open-folder') })
+  if (!q.data) return null
+  const d = q.data
+  return (
+    <div className="flex w-full flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <code className="min-w-0 flex-1 break-all rounded-md border bg-panel px-2.5 py-1.5 text-[12.5px]">{d.data_dir}</code>
+        {d.window && <Button onClick={() => open.mutate()} disabled={open.isPending}><FolderOpen className="size-4" /> Open folder</Button>}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {d.kind === 'installed app'
+          ? 'This is the installed app. Its data stays in your own user folder through updates and reinstalling.'
+          : 'This is a test copy (the code folder), not the installed app. Its data is separate: changes here do not show in the installed app.'}
+        {d.imported &&
+          (d.imported.source.startsWith('Data from ')
+            ? ` Copied from ${d.imported.source.slice(10)} on ${d.imported.at}; that folder is a separate copy, changes there don't reach this one.`
+            : ` Filled from the ${d.imported.source.replace(/^Starter pack/, 'starter pack of')} on ${d.imported.at}.`)}
+      </p>
+    </div>
+  )
+}
+
 /** Settings > Data and accounts > Company data. */
 export function DataField() {
   const q = useDataSetup()

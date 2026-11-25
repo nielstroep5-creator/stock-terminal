@@ -496,6 +496,64 @@ CREATE TABLE IF NOT EXISTS news_cache (       -- news per Yahoo symbol (news.py)
     data    TEXT,                      -- JSON list of news items (news.item)
     fetched REAL                       -- unix time
 );
+CREATE TABLE IF NOT EXISTS insider_filings (   -- Form 4s already read (insiders.py): never downloaded twice
+    accn    TEXT PRIMARY KEY,
+    cik     INTEGER,                   -- the company (issuer)
+    filed   TEXT,
+    status  TEXT,                      -- ok / empty / error
+    fetched TEXT
+);
+CREATE TABLE IF NOT EXISTS insider_trades (    -- one row per stock transaction of a Form 4
+    accn        TEXT,
+    line        INTEGER,
+    cik         INTEGER,
+    filed       TEXT,
+    date        TEXT,                  -- transaction date
+    owner       TEXT,
+    owner_cik   INTEGER,
+    role        TEXT,                  -- "CEO", "Director", "10% owner", ...
+    code        TEXT,                  -- P buy, S sale, A award, M exercise, F tax, G gift (CODES)
+    ad          TEXT,                  -- A acquired / D disposed
+    shares      REAL,
+    price       REAL,                  -- dollars per share (None for awards / gifts)
+    owned_after REAL,
+    direct      TEXT,                  -- D direct / I indirect (a trust, a fund)
+    plan        INTEGER,               -- 1: under a 10b5-1 trading plan (set up in advance)
+    PRIMARY KEY (accn, line)
+);
+CREATE INDEX IF NOT EXISTS insider_trades_cik ON insider_trades (cik, date);
+CREATE TABLE IF NOT EXISTS issuer_cusips (     -- a company's share CUSIPs, from Schedule 13G/13D filings (investors.py)
+    cik     INTEGER PRIMARY KEY,
+    cusips  TEXT,                      -- JSON list, [] when none was found
+    checked TEXT
+);
+CREATE TABLE IF NOT EXISTS inv_filers (        -- famous investors whose 13F is followed (investors.FAMOUS)
+    cik     INTEGER PRIMARY KEY,
+    name    TEXT,                      -- the filer's SEC name (Berkshire Hathaway Inc)
+    checked TEXT
+);
+CREATE TABLE IF NOT EXISTS inv_filings (       -- their latest two 13F-HR filings
+    accn        TEXT PRIMARY KEY,
+    cik         INTEGER,
+    period      TEXT,                  -- quarter end
+    filed       TEXT,
+    total_value REAL,                  -- dollars, shares only
+    positions   INTEGER
+);
+CREATE TABLE IF NOT EXISTS inv_holdings (      -- what is in them: one row per CUSIP (shares only), dollars
+    accn   TEXT,
+    cusip  TEXT,
+    issuer TEXT,
+    cls    TEXT,
+    shares REAL,
+    value  REAL,
+    PRIMARY KEY (accn, cusip)
+);
+CREATE TABLE IF NOT EXISTS holders_cache (     -- largest holders per Yahoo symbol (investors.py), a cache
+    symbol  TEXT PRIMARY KEY,
+    data    TEXT,
+    fetched REAL
+);
 CREATE TABLE IF NOT EXISTS pf_symbols (       -- Trading 212 code -> Yahoo symbol (portfolio.py), NULL = not found
     t212_ticker TEXT PRIMARY KEY,
     yahoo       TEXT,

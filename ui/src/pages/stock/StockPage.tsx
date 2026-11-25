@@ -17,6 +17,7 @@ import { Dividends } from '@/pages/stock/Dividends'
 import { Estimates } from '@/pages/stock/Estimates'
 import { Financials, Ratios } from '@/pages/stock/Financials'
 import { Overview } from '@/pages/stock/Overview'
+import { Ownership } from '@/pages/stock/Ownership'
 import { ResultsBar } from '@/pages/stock/ResultsBar'
 import { Segments } from '@/pages/stock/Segments'
 import { Valuation } from '@/pages/stock/Valuation'
@@ -35,6 +36,7 @@ const TABS = [
   ['valuation', 'Valuation'],
   ['estimates', 'Estimates'],
   ['dividends', 'Dividends'],
+  ['ownership', 'Ownership'],
 ] as const
 type TabKey = (typeof TABS)[number][0]
 
@@ -47,6 +49,7 @@ function hasTab(info: CompanyInfo, k: TabKey) {
   if (k === 'overview') return true
   if (k === 'estimates') return !!info.analyst
   if (k === 'dividends') return info.has_dividends
+  if (k === 'ownership') return !!info.company?.cik && !info.is_etf
   return info.has_financials && (k !== 'segments' || info.has_segments)
 }
 
@@ -242,6 +245,7 @@ export function StockPage() {
       {tab === 'valuation' && <Valuation t={t} info={info} />}
       {tab === 'estimates' && <Estimates t={t} />}
       {tab === 'dividends' && <Dividends t={t} />}
+      {tab === 'ownership' && <Ownership t={t} />}
     </main>
   )
 }
