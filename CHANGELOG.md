@@ -3,7 +3,7 @@
 What changed in each version of Stock Terminal, newest first. The version on your computer is in
 Settings > About. Versions: 1.0.1 = fixes, 1.1.0 = new features.
 
-## 1.1.0 (not released yet)
+## 1.1.0 (2026-11-25)
 
 - Sectors page (under Screener): every sector and industry with its companies, the median valuation, margins,
   growth and returns, and each company's rank inside its group ("#3/24"). A stock's Overview shows where it
