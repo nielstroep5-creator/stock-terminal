@@ -28,7 +28,7 @@ export function Freshness() {
     const pct = Math.round((s.recalc.done / Math.max(1, s.recalc.total)) * 100)
     return (
       <Hint label={`The ratios (margins, growth, valuation) are being worked out again from the stored numbers, once, after new data or an app update. Some ratios can be empty until it is done. ${dates}`}>
-        <span className="hidden h-7 cursor-help items-center gap-1.5 rounded-md border px-2 text-xs text-muted-foreground sm:inline-flex">
+        <span className="hidden h-7 cursor-help items-center gap-1.5 rounded-md border px-2 text-xs whitespace-nowrap text-muted-foreground sm:inline-flex">
           <LoaderCircle className="size-3.5 animate-spin" />
           Recalculating ratios {pct}%
         </span>
@@ -55,9 +55,9 @@ export function Freshness() {
           : `The daily update has not run for a few days. ${dates} It runs every morning at 07:00 while the computer is on (Settings > Data and accounts > Daily update).`
       }
     >
-      <span className="hidden h-7 cursor-help items-center gap-1.5 rounded-md border border-flag/40 bg-flag/10 px-2 text-xs font-medium text-flag sm:inline-flex">
+      <span className="hidden h-7 cursor-help items-center gap-1.5 rounded-md border border-flag/40 bg-flag/10 px-2 text-xs font-medium whitespace-nowrap text-flag sm:inline-flex">
         <span className="size-1.5 rounded-full bg-flag" />
-        {offline ? 'Offline' : 'Old prices'}, closes of {day(s.prices_date, false)}
+        {offline ? 'Offline' : 'Old prices'}<span className="hidden xl:inline">, closes of {day(s.prices_date, false)}</span>
       </span>
     </Hint>
   )

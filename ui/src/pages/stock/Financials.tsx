@@ -296,7 +296,7 @@ function Board({ t, name, mode }: { t: string; name: string; mode: Mode }) {
         <div className="px-4 pt-2 pb-3">{option ? <EChart option={option} hoverTip className="h-[280px]" /> : <div className="h-10" />}</div>
 
         <div ref={newest ? undefined : scrollToNewest} className="overflow-x-auto border-t" onMouseOver={overCell} onMouseMove={moveTip} onMouseLeave={() => setTip(null)}>
-          <table className="tbl sticky-first">
+          <table className="tbl sticky-first edge">
             <thead>
               <tr>
                 <th className="min-w-56">{fin ? `In ${cur} ${unitWord}, except per share` : `Ratio (amounts in ${cur} ${unitWord})`}</th>
