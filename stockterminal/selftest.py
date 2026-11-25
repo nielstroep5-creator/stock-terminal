@@ -571,10 +571,27 @@ def data_rules():
         assert server._search("google", 8)[0]["ticker"] == "GOOGL", "'google' finds Alphabet"
     if any(r["ticker"] == "AAPL" for r in rows):
         assert not any("ineapple" in r["name"] for r in server._search("apple", 8)), "'apple' in the middle of a word"
+    # operating income from the stored lines (old starter pack without that line), not for a bank
+    import sqlite3
+    from . import db as dbm
+    mem = sqlite3.connect(":memory:")
+    mem.executescript(dbm.SCHEMA)
+    mem.execute("INSERT INTO companies (cik, ticker, sic) VALUES (1, 'ZZA', '2834'), (2, 'ZZB', '6021')")
+    for cik in (1, 2):
+        for item, v in (("pretax_income", 100.0), ("interest_expense", 10.0), ("interest_income", 5.0), ("revenue", 400.0)):
+            mem.execute("INSERT INTO financials (cik, item, period_type, fiscal_year, start_date, end_date, value, unit) "
+                        "VALUES (?,?,'FY',2024,'2024-01-01','2024-12-31',?,'USD')", (cik, item, v))
+    mem.execute("INSERT INTO financials (cik, item, period_type, fiscal_year, end_date, value) VALUES (2, 'net_interest_income', 'FY', 2024, '2024-12-31', 50)")
+    assert metrics.fill_operating_income(mem, 1) == 1 and metrics.fill_operating_income(mem, 2) == 0, "operating income filled"
+    assert mem.execute("SELECT value FROM financials WHERE cik=1 AND item='operating_income'").fetchone()[0] == 105.0
+    w2 = pd.DataFrame({"revenue": [10.0, 100.0], "operating_income": [500.0, 30.0], "gross_profit": [20.0, 60.0],
+                       "end": pd.to_datetime(["2023-12-31", "2024-12-31"])})
+    m2 = metrics.compute_for(w2, "FY")
+    assert pd.isna(m2["operating_margin"].iloc[0]) and pd.isna(m2["gross_margin"].iloc[0]) and abs(m2["operating_margin"].iloc[1] - 0.3) < 1e-9, "margins above 100%"
     from .db import readable_name as rn
     assert rn("COCA-COLA EUROPACIFIC PARTNERS plc") == "Coca-Cola Europacific Partners plc" and rn("NVIDIA Corp") == "NVIDIA Corp" \
         and rn("BANK OF AMERICA CORP /DE/") == "Bank of America Corp" and rn("JPMORGAN CHASE & CO") == "JPMorgan Chase & Co", "names"
-    return "predecessor, negative bases, search, names"
+    return "predecessor, negative bases, search, names, operating income from stored lines, margins above 100%"
 
 
 _DATA_SWAP = r"""

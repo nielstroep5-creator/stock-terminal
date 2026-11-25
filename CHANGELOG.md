@@ -35,6 +35,10 @@ Settings > About. Versions: 1.0.1 = fixes, 1.1.0 = new features.
   behind a "How to read this" button.
 - Earnings page and Home's "Coming up": US shares in your portfolio now count (they were missing, so the page
   stayed empty for a portfolio of your own trades).
+- Data from the first starter pack gets its missing operating income (J&J, Lilly, Exxon, IBM and about 120 more)
+  worked out from the stored lines at the next start, so their operating margin and related ratios show.
+- Gross, operating and EBITDA margins above 100% (an incomplete revenue line, mostly REITs) are left blank instead
+  of showing an impossible number.
 - The code is now open source: github.com/nielstroep5-creator/stock-terminal (MIT licence).
 
 ## 1.1.0 (2026-11-25)
