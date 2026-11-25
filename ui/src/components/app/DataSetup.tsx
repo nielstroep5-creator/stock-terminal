@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import { Input } from '@/components/ui/input'
 import { api } from '@/lib/api'
 import { useSettings } from '@/lib/settings'
+import { day } from '@/lib/format'
 
 /** /api/data/setup (stockterminal/datasetup.py): company data in one click for a new install. */
 type Pack = { name: string; size: number; url: string; date: string }
@@ -21,9 +22,17 @@ type DataInfo = {
   can_browse: boolean
 }
 
+/** An example folder that fits this computer (Windows, Mac or Linux). */
+function folderExample() {
+  const ua = navigator.userAgent
+  if (/Windows/i.test(ua)) return 'C:\\Stock Terminal'
+  if (/Mac/i.test(ua)) return '~/Stock Terminal'
+  return '~/stock-terminal'
+}
+
 const mb = (n: number) => `${Math.round(n / 1e6).toLocaleString()} MB`
 
-function useDataSetup(enabled = true) {
+export function useDataSetup(enabled = true) {
   return useQuery({
     queryKey: ['data-setup'],
     queryFn: () => api.get<DataInfo>('/api/data/setup'),
@@ -98,7 +107,7 @@ export function DataSetupBody({ info, onDone }: { info: DataInfo; onDone?: () =>
         <p className="text-[13px] font-medium">The S&amp;P 500, ready in a few minutes</p>
         <p className="text-[12.5px] text-muted-foreground">
           {info.pack
-            ? `Every S&P 500 company with all its numbers (starter pack of ${info.pack.date}, ${mb(info.pack.size)} download). New results and prices come in with the daily update.`
+            ? `Every S&P 500 company with all its numbers (numbers of ${day(info.pack.date)}, ${mb(info.pack.size)} download). New results and prices come in with the daily update.`
             : info.pack_error ?? 'There is no starter pack on the download page yet. Use another copy below, or load companies one by one from the search.'}
         </p>
         {info.pack && (
@@ -114,7 +123,7 @@ export function DataSetupBody({ info, onDone }: { info: DataInfo; onDone?: () =>
         <p className="text-[13px] font-medium">Use data from another copy</p>
         <p className="text-[12.5px] text-muted-foreground">Another Stock Terminal folder on this computer (all companies, settings, portfolio and watchlists are copied; that copy is not changed), or a starter pack .zip.</p>
         <div className="flex flex-wrap gap-2">
-          <Input className="min-w-[260px] flex-1" value={path} onChange={(e) => setPath(e.target.value)} placeholder="C:\Stock Terminal" spellCheck={false} aria-label="Folder of another copy, or a starter pack file" />
+          <Input className="min-w-[260px] flex-1" value={path} onChange={(e) => setPath(e.target.value)} placeholder={folderExample()} spellCheck={false} aria-label="Folder of another copy, or a starter pack file" />
           {info.can_browse && (
             <>
               <Button onClick={() => void browse('folder')} disabled={running}><FolderOpen className="size-4" /> Folder</Button>

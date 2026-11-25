@@ -24,7 +24,7 @@ import { ExtendedPrice, etDay, etTime } from '@/components/app/ExtendedPrice'
 import type { Ext } from '@/components/app/ExtendedPrice'
 
 type N = number | null | undefined
-type EtfRow = { ticker: string; name: string; family?: string; category?: string; expense_ratio: N; total_assets: N; yield: N; close: N; change?: N }
+type EtfRow = { ticker: string; name: string; family?: string; category?: string; expense_ratio: N; total_assets: N; yield: N; close: N; change?: N; live?: boolean; date?: string | null }
 type Profile = {
   name: string; family?: string; category?: string; exchange?: string; description?: string; inception?: string
   expense_ratio: N; total_assets: N; pe: N; beta_3y: N; nav: N; turnover: N; avg_volume: N; yield: N
@@ -64,7 +64,7 @@ export function EtfsPage() {
       <Card className="min-w-0 overflow-x-auto">
         <table className="tbl left-2-4">
           <thead>
-            <tr><th>Fund</th><th>Ticker</th><th>Category</th><th>Family</th><th>Price</th><th>Today</th><th>Assets</th><th>Expense ratio</th><th>Yield</th></tr>
+            <tr><th>Fund</th><th>Ticker</th><th>Category</th><th>Family</th><th>Price</th><th>{rows.some((r) => r.live) ? 'Today' : <Hint label={`No live prices: the change of the last stored day${rows[0]?.date ? ` (${day(rows[0].date)})` : ''}`}><span className="cursor-help">Last day</span></Hint>}</th><th>Assets</th><th>Expense ratio</th><th>Yield</th></tr>
           </thead>
           <tbody>
             {rows.map((r) => (
@@ -523,7 +523,7 @@ function EtfHoldings({ t }: { t: string }) {
         {stat('Asset class', assetTop ? (assetTop[0] === 'Stocks' ? 'Equity' : assetTop[0]) : '–')}
         {stat('Category', d.category || '–')}
         {stat('Assets', d.total_assets ? '$' + big(d.total_assets) : '–')}
-        {stat('P/E', has(d.pe) ? d.pe.toFixed(2) : '–')}
+        {stat('P/E', has(d.pe) ? d.pe.toFixed(1) : '–')}
       </Card>
       <Card className="p-4">
         <H2 side={<Segmented label="Breakdown by" value={bd} onChange={(v) => setPref('state', 'etfBd', v)} options={[{ value: 'sectors', label: 'Sectors' }, { value: 'assets', label: 'Asset class' }, { value: 'countries', label: 'Country' }]} />}>Breakdown</H2>

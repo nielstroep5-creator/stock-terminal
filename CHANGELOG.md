@@ -5,7 +5,45 @@ Settings > About. Versions: 1.0.1 = fixes, 1.1.0 = new features.
 
 ## 1.2.0 (coming)
 
+- First start: one pop-up at a time (the data download comes before the update question), the Home page offers
+  the S&P 500 download right there, the starter pack shows the date of its numbers, and the folder example fits
+  your computer (Windows or Mac).
+- Your own trades work offline for US shares already in the app: adding one, its price on the day and the
+  portfolio value come from the app's own daily prices (split-aware) until Yahoo answers again.
+- Importing a broker file (DEGIRO) with the company name in the ticker column now finds the share by its ISIN,
+  and a file with 2024-03-15 style dates says "year-month-day" instead of a code.
 - Settings in a small window: the section links sit in a row above the settings instead of lying on top of them.
+- The top bar shows how fresh the prices are: "Live", or "Offline, closes of Nov 13" / "Old prices" in orange
+  when Yahoo does not answer or the daily update has not run, and "Recalculating ratios 40%" while the ratios
+  are worked out again after a starter pack or an update.
+- Without internet the app no longer hangs: the Ownership tab answers in a few seconds instead of 16, Home's
+  index cards right away, and the Dow Jones card has its small chart from the stored closes too.
+- Search: "google" finds Alphabet, "facebook" Meta (and other well-known brand names); "apple" no longer lists
+  Pineapple or Applied Materials.
+- Company names in capitals with a few small letters ("COCA-COLA EUROPACIFIC PARTNERS plc") are written
+  normally, and "of", "and", "the" stay small ("Bank of America").
+- No more red errors in the browser console for companies without a logo.
+- The update pop-up of a copy made with git lists the new release notes instead of the programmers' commit titles.
+- Negative numbers use a real minus sign (−1.2B), the stock page says "Net debt 12.3B" instead of "Net cash -12.3B",
+  and growth numbers, ratings and the Compare analyst rows show one decimal instead of two.
+- Home: "Biggest moves" says it covers all companies in the app (not only yours).
+- Compare: the latest numbers at the end of the lines no longer sit on top of each other, and the tables that
+  scroll sideways show a soft edge instead of a column that looks cut off.
+- Alerts > Rules fits a small window (below about 1000 pixels the list ran off the side).
+- ETFs page without internet: the change column shows the last stored day ("Last day") instead of staying empty.
+- Less small print: the explanations under the Earnings calendar, the Compare chart and some Portfolio tabs sit
+  behind a "How to read this" button.
+- Earnings page and Home's "Coming up": US shares in your portfolio now count (they were missing, so the page
+  stayed empty for a portfolio of your own trades).
+- Data from the first starter pack gets its missing operating income (J&J, Lilly, Exxon, IBM and about 120 more)
+  worked out from the stored lines at the next start, so their operating margin and related ratios show.
+- Gross, operating and EBITDA margins above 100% (an incomplete revenue line, mostly REITs) are left blank instead
+  of showing an impossible number.
+- Notes per stock: the note button on a stock page keeps your own note (why you own it, what to watch for); it
+  shows under the name, and on the Watchlist where the list has no note of its own.
+- Dividends tab: before the company announces the next dividend, the expected date (the last one plus the usual
+  time between payments) shows under the last ex-dividend date.
+- Search (Ctrl+K) also finds sectors and industries ("semiconductors", "banks").
 - The code is now open source: github.com/nielstroep5-creator/stock-terminal (MIT licence).
 
 ## 1.1.0 (2026-11-25)

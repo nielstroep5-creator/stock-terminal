@@ -45,6 +45,12 @@ export function Logo({ t, size = 20, keep = false, fallback, className }: {
       decoding="async"
       draggable={false}
       className="size-full object-contain"
+      onLoad={(e) => {
+        if (e.currentTarget.naturalWidth <= 1) {
+          none.add(key) // the server's "no logo" answer is an empty 1x1 picture
+          redraw((n) => n + 1)
+        }
+      }}
       onError={() => {
         none.add(key)
         redraw((n) => n + 1)

@@ -12,6 +12,7 @@ import { fmt } from '@/lib/format'
 import { useSettings } from '@/lib/settings'
 import { cn } from '@/lib/utils'
 import { scrollToNewest } from '@/pages/stock/Financials'
+import { HowToRead } from '@/components/app/bits'
 import { SHAPES, csvLine, numberColor } from './state'
 import type { Chart, Field } from './state'
 
@@ -250,6 +251,29 @@ export function FinChart({ chart, tickers, colors, fields, full, exporter, onRan
     const roomBars = slots.length * Math.max(stacked ? Math.ceil(bars / n) : bars, 1) <= plotW / 42
     const roomLines = slots.length <= plotW / 55
     const series: Record<string, unknown>[] = []
+    // the latest numbers of several lines on the same axis: pushed apart by at least one label height
+    // (echarts' own moveOverlap does not move labels of different lines, so 479.8B sat on 471.1B)
+    const endShift = new Map<(typeof lines)[number], number>()
+    if (!stacked) {
+      const plotH = (full ? window.innerHeight - 330 : 420) - 90
+      for (let ax = 0; ax < units.length; ax++) {
+        const on = lines.filter((l) => l.axis === ax && l.type === 'line')
+        const all = on.flatMap((l) => l.vals.filter((v): v is number => v !== null))
+        if (on.length < 2 || !all.length) continue
+        const lo = Math.min(0, ...all)
+        const hi = Math.max(...all)
+        const ends = on
+          .map((l) => { const v = [...l.vals].reverse().find((x) => x !== null); return [l, v === null || v === undefined || hi === lo ? null : ((hi - v) / (hi - lo)) * plotH] as const })
+          .filter((x): x is readonly [(typeof lines)[number], number] => x[1] !== null)
+          .sort((a, b) => a[1] - b[1])
+        let prev = -Infinity
+        for (const [l, y] of ends) {
+          const at = Math.max(y, prev + 15)
+          endShift.set(l, at - y)
+          prev = at
+        }
+      }
+    }
     for (const l of lines) {
       const pt = (i: number, onlyEst?: boolean) => {
         const x = l.cells[i]
@@ -282,7 +306,7 @@ export function FinChart({ chart, tickers, colors, fields, full, exporter, onRan
         if (all || chart.vl !== 'auto') return rows
         const i = rows.map((d) => d.value !== null && d.value !== undefined).lastIndexOf(true)
         // a bar's number sits centred on it; a line's ends at its last point so it never runs off the chart
-        if (i >= 0) rows[i] = { ...rows[i], label: l.type === 'bar' ? { show: true } : { show: true, align: 'right', offset: [4, 0] }, itemStyle: { ...((rows[i].itemStyle as object) ?? {}), opacity: 1 } }
+        if (i >= 0) rows[i] = { ...rows[i], label: l.type === 'bar' ? { show: true } : { show: true, align: 'right', offset: [4, endShift.get(l) ?? 0] }, itemStyle: { ...((rows[i].itemStyle as object) ?? {}), opacity: 1 } }
         return rows
       }
       if (l.type === 'bar') { series.push({ ...base, data: latest(slots.map((_, i) => pt(i))) }); continue }
@@ -333,7 +357,7 @@ export function FinChart({ chart, tickers, colors, fields, full, exporter, onRan
       },
       series,
     }
-  }, [model, c, width, chart.vl, fields, mode, period, title, stacked])
+  }, [model, c, width, chart.vl, fields, mode, period, title, stacked, full])
 
   const csv = () => (model ? [csvLine(['Period', ...model.lines.map((l) => l.name)]), ...model.slots.map((k, i) => csvLine([model.label(k), ...model.lines.map((l) => l.vals[i] ?? '')]))].join('\r\n') : '')
   exporter.current = {
@@ -390,10 +414,10 @@ export function FinChart({ chart, tickers, colors, fields, full, exporter, onRan
         </div>
       )}
       {model && (model.hasEst || cal || model.flagged) && (
-        <p className="mt-2 text-xs text-muted-foreground">
+        <HowToRead className="mt-2">
           {cal ? 'Calendar years: the four quarters that fall in January to December added up (balance sheet: the value at the end of the year). The current year is not complete yet: its lighter bar shows the last 12 months up to the latest quarter. ' : model.hasEst ? 'Faded bars and dashed lines marked (E) are analyst estimates for fiscal years not reported yet. Years sit in the calendar year in which the fiscal year ends. ' : ''}
           {model.flagged && <>A <span className="text-flag">▲</span> marks a value that did not pass a consistency check; hover it to see why.</>}
-        </p>
+        </HowToRead>
       )}
       {model && !full && (
         <div className="-mx-4 mt-4 border-t px-4 pt-3">
@@ -403,7 +427,7 @@ export function FinChart({ chart, tickers, colors, fields, full, exporter, onRan
             <IconToggle on={newest} onChange={(v) => setPref('ui2', 'cmp_newest_first', v)} label={newest ? 'Newest first. Click for oldest first.' : 'Oldest first. Click for newest first.'}><ArrowLeftRight /></IconToggle>
           </div>
           <div ref={newest ? undefined : scrollToNewest} className="overflow-x-auto">
-            <table className="tbl tight sticky-first">
+            <table className="tbl tight sticky-first edge">
               <thead>
                 <tr>
                   <th />

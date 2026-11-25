@@ -169,6 +169,11 @@
   z-index: 1;
   background: var(--card);
 }
+/* a soft edge in tables that scroll sideways, so a column half under the names reads as "more to the side" */
+.tbl.sticky-first.edge th:first-child,
+.tbl.sticky-first.edge td:first-child {
+  box-shadow: 8px 0 8px -8px color-mix(in srgb, var(--foreground) 25%, transparent);
+}
 .tbl.sticky-first tbody tr.hit td:first-child {
   background: color-mix(in srgb, var(--up-bg) 60%, var(--card));
 }

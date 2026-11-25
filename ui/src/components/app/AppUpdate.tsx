@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { api } from '@/lib/api'
 import { useSettings } from '@/lib/settings'
+import { useDataSetup } from '@/components/app/DataSetup'
 
 /** /api/app/update (stockterminal/appupdate.py). 'target' names the newer version: a commit (git copy) or a release. */
 export type UpdateInfo = {
@@ -141,10 +142,14 @@ export function UpdatePrompt() {
   const { settings, pref, setPref } = useSettings()
   const ready = settings.update_check && !!settings.sec_email
   const check = useUpdateCheck(ready)
+  const data = useDataSetup(ready)
   const [closed, setClosed] = useState(false)
   const info = check.data
   const skipped = pref('ui2', 'update_skip', '')
-  const open = ready && !closed && !!info?.available && info.target !== skipped
+  // never on top of the company-data window: a new install first gets its data, the update offer comes after
+  const d = data.data
+  const dataFirst = !d || d.companies < 20 || d.waiting || !!d.job
+  const open = ready && !closed && !dataFirst && !!info?.available && info.target !== skipped
   if (!info) return null
   return (
     <Dialog open={open} onOpenChange={(o) => !o && setClosed(true)}>

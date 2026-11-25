@@ -71,11 +71,11 @@ function value(fl: Field, v: unknown): ReactNode {
   if (!has(v)) return <span className="text-muted-foreground">–</span>
   if ((fl.key === 'div_yield' || fl.key === 'div_yield_ttm') && v === 0) return <span className="text-muted-foreground">No dividend</span>
   switch (fl.fmt) {
-    case 'pct': return SIGNED.has(fl.key) || fl.key.endsWith('_yoy') ? <span className={tone(v)}>{pctSigned(v)}</span> : (fl.key.endsWith('yield') || fl.key.endsWith('yield_ttm') ? fmt(v, 'pct2') : fmt(v, 'pct'))
+    case 'pct': return SIGNED.has(fl.key) || fl.key.endsWith('_yoy') ? <span className={tone(v)}>{pctSigned(v, fl.key === 'change' ? 2 : 1)}</span> : (fl.key.endsWith('yield') || fl.key.endsWith('yield_ttm') ? fmt(v, 'pct2') : fmt(v, 'pct'))
     case 'usd': return big(v)
     case 'int': return Math.round(v).toLocaleString('en-US')
     case 'days': return v === 0 ? 'today' : v === 1 ? 'tomorrow' : `${v} days`
-    case 'num': return fl.key === 'rating' ? <span title={ratingText(v)} className={v < 2.5 ? 'text-up' : v >= 3.5 ? 'text-down' : ''}>{v.toFixed(2)}</span> : fmt(v, 'num')
+    case 'num': return fl.key === 'rating' ? <span title={ratingText(v)} className={v < 2.5 ? 'text-up' : v >= 3.5 ? 'text-down' : ''}>{v.toFixed(1)}</span> : fmt(v, 'num')
     default: return fmt(v, fl.fmt)
   }
 }

@@ -14,6 +14,8 @@ Definitions (all computed the same way for every company):
               (FY and TTM only; averages use the value one year earlier.)
   valuation   uses only financial data that was public on that date (no look-ahead).
 """
+import re
+
 import numpy as np
 import pandas as pd
 
@@ -99,6 +101,10 @@ def compute_for(w, ptype, w_orig=None, w_prior=None):
                     ("ebitda_margin", "ebitda"), ("net_margin", "net_income"), ("fcf_margin", "fcf"),
                     ("rnd_to_revenue", "rnd"), ("sbc_to_revenue", "sbc"), ("capex_to_revenue", "capex")]:
         out[name] = _div(g(c), rev)
+    # gross profit, operating profit and EBITDA cannot be larger than revenue: above 100% the revenue line is
+    # incomplete (a REIT's "revenue from contracts" without the rents), so the margin is left blank, not shown wrong
+    for name in ("gross_margin", "operating_margin", "ebitda_margin"):
+        out[name] = out[name].where(~(out[name] > 1.0))
 
     tax_rate = _per(g("income_tax"), g("pretax_income"))
     out["effective_tax_rate"] = tax_rate
@@ -172,7 +178,61 @@ def compute_for(w, ptype, w_orig=None, w_prior=None):
 # Raise when a change to how ratios are worked out must reach data made by older code (a starter pack, another
 # copy): at the next start every company's ratios and valuation are recalculated once, in the background.
 # 2 = the 3/5/10-year growth (CAGR) and ROE/ROA averages fix of 2026-11-16.
-METRICS_VERSION = 2
+METRICS_VERSION = 3
+
+
+RECALC = {"done": 0, "total": 0}     # progress of recalc_if_outdated, shown in the top bar while it runs
+
+
+def fill_operating_income(conn, cik):
+    """Operating income for periods that have none, from the stored lines with the same formulas as
+    standardize.py (mapping.py). For data made before those formulas existed (the first starter pack: J&J, Lilly,
+    Exxon, ... had no operating margin) without the raw SEC data that a full recalculation needs.
+    Not for insurers (no such line) and banks (interest is their business). Returns the number of rows added."""
+    from .mapping import ITEMS
+    from .standardize import eval_formula, industry_of
+    kind = industry_of(conn, cik)
+    if kind == "insurer":
+        return 0
+    have = {r[0] for r in conn.execute("SELECT DISTINCT item FROM financials WHERE cik=?", (cik,))}
+    if "net_interest_income" in have or "premiums_earned" in have:
+        return 0
+    sic = str((conn.execute("SELECT sic FROM companies WHERE cik=?", (cik,)).fetchone() or [None])[0] or "")
+    is_reit, is_fin = kind == "reit", sic.startswith("6")
+    formulas = [f.split(":", 1)[1].strip() if f.startswith(("reit:", "nonfin:")) else f
+                for f in next(i for i in ITEMS if i["key"] == "operating_income")["formulas"]
+                if (is_reit or not f.startswith("reit:")) and (not is_fin or not f.startswith("nonfin:"))]
+    names = {n for f in formulas for n in re.findall(r"\b([a-z][a-z0-9_]*)", f)}
+    rows = conn.execute(f"""SELECT item, period_type, fiscal_year, fiscal_quarter, calendar_quarter, start_date, end_date,
+                                   value, unit, filed, original_filed, accn
+                            FROM financials WHERE cik=? AND item IN ({','.join('?' * (len(names) + 1))})""",
+                        (cik, "operating_income", *names)).fetchall()
+    periods = {}
+    for r in rows:
+        periods.setdefault((r[1], r[6]), {})[r[0]] = r
+    add = []
+    for (ptype, end), items in periods.items():
+        if "operating_income" in items:
+            continue
+
+        class V:                                  # what eval_formula reads from a stored line
+            def __init__(self, r):
+                self.value = self.orig = r[7]
+                self.filed, self.orig_filed = r[9] or "", r[10] or r[9] or ""
+        vals = {k: V(r) for k, r in items.items()}
+        for f in formulas:
+            rec = eval_formula(f, vals)
+            if rec is not None:
+                base = items.get("pretax_income") or items.get("revenue") or next(iter(items.values()))
+                add.append((cik, "operating_income", ptype, base[2], base[3], base[4], base[5], end, rec.value,
+                            rec.value, base[8] or "USD", f, "derived", 1, base[9], base[10], base[11]))
+                break
+    if add:
+        conn.executemany("""INSERT OR IGNORE INTO financials (cik, item, period_type, fiscal_year, fiscal_quarter,
+                            calendar_quarter, start_date, end_date, value, original_value, unit, source, method,
+                            is_derived, filed, original_filed, accn) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", add)
+        conn.commit()
+    return len(add)
 
 
 def recalc_if_outdated(say=print):
@@ -193,8 +253,12 @@ def recalc_if_outdated(say=print):
             return 0
         say(f"Ratios made by an older version: recalculating {len(cos)} companies")
         n = 0
+        RECALC.update(done=0, total=len(cos))
         for cik, t in cos:
+            RECALC["done"] += 1
             try:
+                if v < 3:
+                    fill_operating_income(conn, cik)
                 compute_metrics(conn, cik)
                 compute_valuation(conn, cik, t)
                 n += 1
@@ -206,6 +270,7 @@ def recalc_if_outdated(say=print):
         db.log(conn, None, "metrics_upgrade", "ok", n, f"ratios recalculated (version {METRICS_VERSION})")
         return n
     finally:
+        RECALC.update(done=0, total=0)
         conn.close()
 
 

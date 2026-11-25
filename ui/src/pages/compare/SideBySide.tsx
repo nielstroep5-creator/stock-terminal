@@ -39,7 +39,7 @@ const ratingText = (m: number) => (m < 1.5 ? 'Strong buy' : m < 2.5 ? 'Buy' : m 
 function cell(v: N, f?: string): ReactNode {
   if (!has(v)) return '–'
   if (f === 'usd') return big(v)
-  if (f === 'spct') return pctSigned(v)
+  if (f === 'spct') return pctSigned(v, 1)
   if (f === 'rating') return <>{ratingText(v)} <span className="text-muted-foreground">{v.toFixed(1)}</span></>
   return fmt(v, f)
 }

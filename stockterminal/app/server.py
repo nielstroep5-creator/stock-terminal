@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .. import alerts, allocation, analysis, costs, db, quality, dividends, etf, events, market, own, pf_history, portfolio, quote, screener, sectors, settings, tax, trading212, watchlist, xray
@@ -297,6 +297,13 @@ def find(q: str = "", limit: int = 12):
 _SUFFIX = re.compile(r"[,.]|\b(inc|corp|corporation|co|company|ltd|limited|plc|holdings?|group|the|n\.?v|s\.?a|llc|lp)\b")
 
 
+# brand names people type that are not in the company's official name
+ALIASES = {"google": "GOOGL", "youtube": "GOOGL", "facebook": "META", "instagram": "META", "whatsapp": "META",
+           "jp morgan": "JPM", "jpmorgan": "JPM", "coca cola": "KO", "coke": "KO", "pepsi": "PEP", "walmart": "WMT",
+           "tsmc": "TSM", "berkshire": "BRK-B", "disney": "DIS", "mcdonalds": "MCD", "exxon": "XOM",
+           "j&j": "JNJ", "johnson and johnson": "JNJ", "p&g": "PG", "amd": "AMD", "intel": "INTC", "tesla": "TSLA"}
+
+
 def _core_name(n):
     return " ".join(_SUFFIX.sub(" ", n).split())
 
@@ -314,10 +321,13 @@ def _search(text, limit):
         low = t.lower()
     scored = []
     name_hit = False
+    alias = ALIASES.get(" ".join(low.replace("-", " ").replace("'", "").split()))
     for r in rows:
         s = 0
         if r["ticker"] == t:
             s = 100
+        elif alias and r["ticker"] == alias:
+            s = 95
         elif r["ticker"].startswith(t):
             s = 80 - len(r["ticker"])
         elif r["_n"].startswith(low):
@@ -333,8 +343,12 @@ def _search(text, limit):
                 s = 30 * ratio
                 name_hit = name_hit or ratio > 0.85          # a clear typo of a name ("nvdia")
         if s:
-            name_hit = name_hit or 60 <= s <= 70           # the text is (the start of) a word in a name
-            scored.append((s + (25 if r["loaded"] else 0), r))
+            name_hit = name_hit or 60 <= s <= 70 or s == 95   # the text is (the start of) a word in a name
+            scored.append((s + (25 if r["loaded"] else 0), s, r))
+    if any(base >= 60 for _, base, _ in scored):
+        # real hits found: leave out the middle of a word ("apple" in "Pineapple") and the typo guesses
+        scored = [x for x in scored if x[1] >= 60]
+    scored = [(sc, r) for sc, _, r in scored]
     scored.sort(key=lambda x: -x[0])
     out = [dict(ticker=r["ticker"], name=r["name"], loaded=r["loaded"], etf=r["etf"]) for _, r in scored[:limit]]
     # offer an unknown ticker only when the text looks like one, not when it is part of a company name
@@ -807,15 +821,19 @@ def intraday(tickers: str, range: str = "1D"):
 
 @app.get("/api/logo/{ticker}")
 def logo(ticker: str, bg: str = "light"):
-    """A company's or ETF's logo (logos.py), downloaded the first time it is asked for. 404 = none: the screen
-    shows the ticker instead. bg: the version for a light or a dark background."""
+    """A company's or ETF's logo (logos.py), downloaded the first time it is asked for. None: an empty 1x1
+    picture, and the screen shows the ticker on its own. bg: the version for a light or a dark background."""
     from .. import logos
     if not settings.read().get("show_logos", True):
         raise HTTPException(404, "logos are off")
     p = logos.get(ticker, bg if bg in ("light", "dark") else "light")
-    if not p:
-        raise HTTPException(404, "no logo", headers={"Cache-Control": "max-age=3600"})
+    if not p:      # an empty 1x1 picture instead of a 404, so the browser console stays clean; the screen sees the size
+        return Response(_NO_LOGO, media_type="image/png", headers={"Cache-Control": "max-age=3600", "X-No-Logo": "1"})
     return FileResponse(p, media_type="image/png", headers={"Cache-Control": "max-age=86400"})
+
+
+_NO_LOGO = bytes.fromhex("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944"
+                         "4154789c6360606060000000050001a5f645400000000049454e44ae426082")
 
 
 @app.get("/api/etf/{ticker}")
@@ -895,8 +913,13 @@ def etf_holdings(ticker: str, live: int = 0):
 @app.get("/api/etfs")
 def etf_list(live: int = 0):
     rows = q("""SELECT e.ticker, e.name, e.family, e.category, e.expense_ratio, e.total_assets, e.yield_ AS yield,
-                (SELECT close FROM prices p WHERE p.ticker=e.ticker AND p.close IS NOT NULL ORDER BY date DESC LIMIT 1) AS close
+                (SELECT close FROM prices p WHERE p.ticker=e.ticker AND p.close IS NOT NULL ORDER BY date DESC LIMIT 1) AS close,
+                (SELECT close FROM prices p WHERE p.ticker=e.ticker AND p.close IS NOT NULL ORDER BY date DESC LIMIT 1 OFFSET 1) AS prev,
+                (SELECT MAX(date) FROM prices p WHERE p.ticker=e.ticker) AS date
                 FROM etfs e ORDER BY e.total_assets DESC""")
+    for r in rows:                 # without a live quote: the change of the last stored day (the Today column says which)
+        prev = r.pop("prev")
+        r["change"] = r["close"] / prev - 1 if r["close"] and prev else None
     if live:
         qs = quote.get_quotes([r["ticker"] for r in rows])
         for r in rows:
@@ -1363,6 +1386,12 @@ def sectors_overview():
     return sectors.overview(screener.rows(DB_PATH.stat().st_mtime))
 
 
+@app.get("/api/sectors/names")
+def sectors_names():
+    """Every sector and industry (Ctrl+K finds them)."""
+    return sectors.names(screener.rows(DB_PATH.stat().st_mtime))
+
+
 @app.get("/api/sectors/group")
 def sectors_group(sector: str, industry: str | None = None):
     """One sector (with its industries) or one industry: medians and every company with its ranks."""
@@ -1457,6 +1486,28 @@ def app_restart():
 
 
 pick_path = None      # set by app/__main__.py: opens the window's own folder / file chooser
+
+
+_fresh = {"at": 0.0, "prices": None, "filings": None}
+
+
+@app.get("/api/data/status")
+def data_status():
+    """Top bar: how fresh the numbers are (newest stored daily close, Yahoo live or offline) and the progress
+    of a ratio recalculation that runs in the background after a starter pack or an app update."""
+    from .. import metrics
+    if time.time() - _fresh["at"] > 300:                   # the two dates change once a day: asked again every 5 min
+        conn = db.connect()
+        try:
+            _fresh["prices"] = conn.execute("SELECT MAX(date) FROM prices WHERE ticker IN ('SPY','AAPL','MSFT')").fetchone()[0] \
+                or conn.execute("SELECT MAX(date) FROM prices").fetchone()[0]
+            _fresh["filings"] = conn.execute("SELECT MAX(filed) FROM financials").fetchone()[0]
+            _fresh["at"] = time.time()
+        finally:
+            conn.close()
+    r = metrics.RECALC
+    return dict(prices_date=_fresh["prices"], filings_date=_fresh["filings"], quotes=quote.status(),
+                recalc=dict(done=r["done"], total=r["total"]) if r["total"] else None)
 
 
 @app.get("/api/data/setup")
@@ -2035,12 +2086,19 @@ def _ticker_events(ts, refresh, days):
 
 
 def _held_tickers():
-    """Tickers of your Trading 212 holdings (US listings only), for the Home calendar."""
+    """Tickers of your holdings (Trading 212 or your own trades; US listings only), for the Home calendar and
+    the Earnings page. US shares have no pf_symbols row (AAPL_US_EQ is AAPL without a lookup)."""
     try:
-        rows = q("SELECT DISTINCT s.yahoo FROM pf_positions p JOIN pf_symbols s ON s.t212_ticker=p.t212_ticker")
+        rows = q("SELECT DISTINCT p.t212_ticker, s.yahoo FROM pf_positions p LEFT JOIN pf_symbols s ON s.t212_ticker=p.t212_ticker")
     except Exception:  # noqa: BLE001  no portfolio tables yet
         return []
-    return [r["yahoo"] for r in rows if r.get("yahoo") and re.fullmatch(r"[A-Z][A-Z0-9\-]{0,6}", r["yahoo"])]
+    out = []
+    for r in rows:
+        us = portfolio.app_ticker(r["t212_ticker"], None)
+        t = _norm_ticker(us) if us else r.get("yahoo")
+        if t and re.fullmatch(r"[A-Z][A-Z0-9\-]{0,6}", t):
+            out.append(t)
+    return list(dict.fromkeys(out))
 
 
 @app.get("/api/coming-up")

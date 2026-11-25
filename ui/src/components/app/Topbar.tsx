@@ -7,6 +7,7 @@ import { Hint } from '@/components/ui/tooltip'
 import { useSettings } from '@/lib/settings'
 import type { Settings } from '@/lib/settings'
 import { AlertMenu } from '@/components/app/AlertMenu'
+import { Freshness } from '@/components/app/Freshness'
 
 const KEYS: [string[], string][] = [
   [['Ctrl', 'K'], 'Search companies, ETFs, pages and settings'],
@@ -105,6 +106,7 @@ export function Topbar({ onSearch }: { onSearch: () => void }) {
         <kbd className="rounded border bg-card px-1.5 py-px font-sans text-[11px] whitespace-nowrap">Ctrl K</kbd>
       </button>
       <div className="grow" />
+      <Freshness />
       <AlertMenu />
       <Hint label="Keyboard shortcuts (?)">
         <Button variant="ghost" size="icon" aria-label="Keyboard shortcuts" onClick={() => setKeysOpen(true)}>

@@ -113,6 +113,17 @@ def overview(rows):
     return dict(metrics=metrics_info(), sectors=out, count=len(rows), med=medians(rows))
 
 
+def names(rows):
+    """Every sector and industry with its number of companies (the search finds them)."""
+    out = []
+    for name, rs in _groups(rows, sector).items():
+        out.append(dict(sector=name, industry=None, n=len(rs)))
+        for ind, irs in _groups(rs, industry).items():
+            if ind:
+                out.append(dict(sector=name, industry=ind, n=len(irs)))
+    return out
+
+
 def _company(r, rk):
     keep = ("ticker", "name", "industry", "market_cap", "kind", "price", "change")
     return {**{k: r.get(k) for k in keep}, **{k: r.get(k) for k in KEYS}, "ranks": rk.get(r["ticker"], {})}

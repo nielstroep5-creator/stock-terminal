@@ -64,6 +64,23 @@ def _quote_info(symbol, q):
                 price=q.get("regularMarketPrice"), type=q.get("quoteType"), exchange=q.get("fullExchangeName"))
 
 
+def _stored_info(tries):
+    """{symbol, name, currency, price} of a US share whose prices are in this app (no Yahoo needed), or None."""
+    from . import db
+    conn = db.connect()
+    try:
+        for t in tries:
+            row = conn.execute("""SELECT c.ticker, COALESCE(c.display_name, c.name), c.exchange,
+                                         (SELECT close FROM prices p WHERE p.ticker=c.ticker ORDER BY date DESC LIMIT 1)
+                                  FROM companies c WHERE c.ticker=?""", (t,)).fetchone()
+            if row and row[3]:
+                return dict(symbol=row[0], name=db.readable_name(row[1]) or row[0], currency="USD", price=row[3],
+                            type="EQUITY", exchange=row[2], stored=True)
+    finally:
+        conn.close()
+    return None
+
+
 def lookup(text, currency=None, quotes=None):
     """{symbol, name, currency, price} for what you typed: a Yahoo symbol (AAPL, ASML.AS), the app's way
     (BRK.B) or an ISIN. With `currency` (from a CSV) a listing in that currency wins. Raises OwnError."""
@@ -79,7 +96,11 @@ def lookup(text, currency=None, quotes=None):
         tries = portfolio._search_isin(s) or tries
     got = quotes_of(tries)
     if not any(got.values()) and not quotes_of(["SPY"]).get("SPY"):
-        raise OwnError("Could not reach Yahoo to check the ticker. Check your internet connection and try again.")
+        local = _stored_info(tries)                           # offline: a US share this app already has works anyway
+        if local and (not want or want == "USD"):
+            return local
+        raise OwnError("Could not reach Yahoo to check the ticker. Check your internet connection and try again. "
+                       "Offline, only US shares that are already in the app can be added.")
     found = [_quote_info(t, got[t]) for t in tries if got.get(t)]
     if want:
         same = [f for f in found if portfolio._major(1, f["currency"])[1] == want]
@@ -171,6 +192,10 @@ def add(conn, date, symbol, side, quantity, price=None, fees=None, note=None, do
         pf_history.refresh_prices(conn, [sym], pf_history._days_before(day, 10), [],
                                   download or pf_history._download)
         close = _close_on(conn, sym, day)
+        if close is None and cur == "USD":                    # offline: the app's own daily prices of that share
+            r = conn.execute("SELECT date, close FROM prices WHERE ticker=? AND date<=? AND close IS NOT NULL "
+                             "ORDER BY date DESC LIMIT 1", (sym, day)).fetchone()
+            close = r[1] * _split_factor(_splits(conn, sym), r[0]) if r else None
         if p is None:
             if not close:
                 raise OwnError(f"No price from Yahoo for {sym} on {day}. Fill in the price you paid.")
@@ -266,14 +291,17 @@ DATE_RE = re.compile(r"(\d{1,4})[-/.](\d{1,2})[-/.](\d{1,4})")
 
 def _date_order(values):
     """'ymd', 'dmy' or 'mdy' for the dates in one file (decided on the whole column, not per row)."""
-    a = b = False
+    a = b = other = False
     for v in values:
         m = DATE_RE.search(v or "")
         if not m or len(m.group(1)) == 4:
             continue
+        other = True
         x, y = int(m.group(1)), int(m.group(2))
         a |= x > 12
         b |= y > 12
+    if not other:
+        return "ymd"                                          # only 2024-01-05 style dates (or none)
     if b and not a:
         return "mdy"
     return "dmy"
@@ -353,6 +381,12 @@ def parse_csv(text):
     return rows, skipped, order
 
 
+def _looks_like_name(text):
+    """A company name in the ticker column ("APPLE INC", "Vanguard FTSE All-World") rather than a ticker."""
+    t = (text or "").strip()
+    return " " in t or len(t) > 12
+
+
 def import_csv(conn, text, download=None, quotes=None):
     """Add the trades in a broker's CSV. Trades already there (same day, ticker, side, shares and price)
     are skipped, so importing the same file twice adds nothing."""
@@ -363,7 +397,10 @@ def import_csv(conn, text, download=None, quotes=None):
         if k in found or k in failed:
             continue
         err = None
-        for attempt in [x for x in (r["symbol"], r["isin"]) if x]:
+        tries = [x for x in (r["symbol"], r["isin"]) if x]
+        if r["isin"] and r["symbol"] and _looks_like_name(r["symbol"]):
+            tries.reverse()                                   # DEGIRO: "Product" = APPLE INC, the ISIN says which share
+        for attempt in tries:
             try:
                 found[k] = lookup(attempt, r["currency"], quotes)
                 break
@@ -402,7 +439,8 @@ def import_csv(conn, text, download=None, quotes=None):
         except OwnError as e:
             skipped.append(dict(line=r["line"], reason=str(e).rstrip(".")))
     skipped.sort(key=lambda s: s["line"])
-    return dict(added=added, skipped=skipped, dates="day/month" if order == "dmy" else "month/day")
+    return dict(added=added, skipped=skipped,
+                dates={"dmy": "day/month", "mdy": "month/day"}.get(order, "year-month-day"))
 
 
 EXAMPLE_CSV = """date,ticker,side,shares,price,currency,fees
@@ -486,6 +524,40 @@ def rebuild(conn=None, refresh=True, say=lambda *_: None, download=None, div_dow
             conn.close()
 
 
+def _splits(conn, sym):
+    return conn.execute("SELECT date, ratio FROM splits WHERE ticker=? AND ratio > 0", (sym,)).fetchall()
+
+
+def _split_factor(splits, day):
+    """The app's own closes are split-adjusted; times this factor gives the price as it was traded that day."""
+    f = 1.0
+    for d, r in splits:
+        if d > day:
+            f *= r
+    return f
+
+
+def _stored_prices(conn, symbols, start):
+    """Offline (or Yahoo had nothing yet): a US share without portfolio prices gets the app's own daily closes,
+    so its value and return still show. Yahoo's history replaces them at the next refresh that works."""
+    for s in symbols:
+        if conn.execute("SELECT 1 FROM pf_prices WHERE symbol=? LIMIT 1", (s,)).fetchone():
+            continue
+        rows = conn.execute("SELECT date, close, adj_close FROM prices WHERE ticker=? AND date>=? AND close IS NOT NULL",
+                            (s, pf_history._days_before(start, 7))).fetchall()
+        if rows:
+            sp = _splits(conn, s)
+            dates = sorted(d for d, _, _ in rows)
+            on = {}                                            # each split on the first stored day from its date
+            for d, r in sp:
+                first = next((x for x in dates if x >= d), None)
+                if first and d >= dates[0]:
+                    on[first] = on.get(first, 1.0) * r
+            conn.executemany("INSERT OR REPLACE INTO pf_prices VALUES (?,?,?,?,?)",
+                             [(s, d, c * _split_factor(sp, d), a, on.get(d)) for d, c, a in rows])
+            conn.commit()
+
+
 def _rebuild(conn, refresh, say, download, div_download):
     if trading212.status().get("connected"):
         return dict(skipped="Trading 212 is connected")
@@ -509,6 +581,7 @@ def _rebuild(conn, refresh, say, download, div_download):
     if refresh:
         pf_history.refresh_prices(conn, symbols + list(fx.values()), pf_history._days_before(start, 7), errors, download)
         refresh_divs(conn, symbols, errors, div_download)
+    _stored_prices(conn, [s for s in symbols if curs.get(s) == "USD"], start)
     P = _Prices(conn, symbols + list(fx.values()))
 
     def rate(cur, day=None):                                   # units of `cur` per 1 `acc`

@@ -398,6 +398,15 @@ def own_trades():
                                              "20/04/2024;AAPL;Verkoop;1;180;USD;\n")
         assert order == "dmy" and [(x["date"], x["side"], x["quantity"], x["price"], x["fees"]) for x in rows] == \
             [("2024-03-15", "BUY", 3, 1234.5, 0.5), ("2024-04-20", "SELL", 1, 180, None)] and len(skipped) == 1, (rows, skipped)
+        assert own.parse_csv("Date,Ticker,Side,Quantity,Price\n2024-03-15,AAPL,buy,3,100\n")[2] == "ymd"
+        assert own._looks_like_name("APPLE INC") and not own._looks_like_name("AAPL")
+        # offline: the app's own (split-adjusted) closes become the prices as traded, with the split on its day
+        conn.executemany("INSERT INTO prices (ticker, date, close, adj_close) VALUES (?,?,?,?)",
+                         [("ZZZ", "2024-06-07", 12.0, 12.0), ("ZZZ", "2024-06-10", 12.5, 12.5)])
+        conn.execute("INSERT INTO splits VALUES ('ZZZ', '2024-06-08', 10)")
+        own._stored_prices(conn, ["ZZZ"], "2024-06-07")
+        got = conn.execute("SELECT date, close, split FROM pf_prices WHERE symbol='ZZZ' ORDER BY date").fetchall()
+        assert got == [("2024-06-07", 120.0, None), ("2024-06-10", 12.5, 10.0)], got
         res = own.import_csv(conn, own.EXAMPLE_CSV, download=download,
                              quotes=lambda syms: {s: (dict(regularMarketPrice=1, currency=info[s]["currency"], longName=s) if s in info else None) for s in syms})
         again = own.import_csv(conn, own.EXAMPLE_CSV, download=download,
@@ -409,7 +418,7 @@ def own_trades():
         assert not conn.execute("SELECT 1 FROM pf_positions").fetchone() and "source" not in trading212.meta(conn), "empty again"
     finally:
         trading212.status = real_status
-    return "split, average cost, euro share, dividends, box 3 in euros, CSV import (twice), empty again ok"
+    return "split, average cost, euro share, dividends, box 3 in euros, CSV import (twice), offline prices, empty again ok"
 
 
 def news_items():
@@ -557,7 +566,32 @@ def data_rules():
     if any(r["ticker"] == "BRK-B" for r in server._ticker_rows()):
         assert server._norm_ticker("brk/b") == "BRK-B" and server._norm_ticker("BRK B") == "BRK-B"
     assert not any("Not found" in r["name"] for r in server._search("google", 8)), "'google' offered as a ticker"
-    return "predecessor, negative bases, search"
+    rows = server._ticker_rows()
+    if any(r["ticker"] == "GOOGL" for r in rows):
+        assert server._search("google", 8)[0]["ticker"] == "GOOGL", "'google' finds Alphabet"
+    if any(r["ticker"] == "AAPL" for r in rows):
+        assert not any("ineapple" in r["name"] for r in server._search("apple", 8)), "'apple' in the middle of a word"
+    # operating income from the stored lines (old starter pack without that line), not for a bank
+    import sqlite3
+    from . import db as dbm
+    mem = sqlite3.connect(":memory:")
+    mem.executescript(dbm.SCHEMA)
+    mem.execute("INSERT INTO companies (cik, ticker, sic) VALUES (1, 'ZZA', '2834'), (2, 'ZZB', '6021')")
+    for cik in (1, 2):
+        for item, v in (("pretax_income", 100.0), ("interest_expense", 10.0), ("interest_income", 5.0), ("revenue", 400.0)):
+            mem.execute("INSERT INTO financials (cik, item, period_type, fiscal_year, start_date, end_date, value, unit) "
+                        "VALUES (?,?,'FY',2024,'2024-01-01','2024-12-31',?,'USD')", (cik, item, v))
+    mem.execute("INSERT INTO financials (cik, item, period_type, fiscal_year, end_date, value) VALUES (2, 'net_interest_income', 'FY', 2024, '2024-12-31', 50)")
+    assert metrics.fill_operating_income(mem, 1) == 1 and metrics.fill_operating_income(mem, 2) == 0, "operating income filled"
+    assert mem.execute("SELECT value FROM financials WHERE cik=1 AND item='operating_income'").fetchone()[0] == 105.0
+    w2 = pd.DataFrame({"revenue": [10.0, 100.0], "operating_income": [500.0, 30.0], "gross_profit": [20.0, 60.0],
+                       "end": pd.to_datetime(["2023-12-31", "2024-12-31"])})
+    m2 = metrics.compute_for(w2, "FY")
+    assert pd.isna(m2["operating_margin"].iloc[0]) and pd.isna(m2["gross_margin"].iloc[0]) and abs(m2["operating_margin"].iloc[1] - 0.3) < 1e-9, "margins above 100%"
+    from .db import readable_name as rn
+    assert rn("COCA-COLA EUROPACIFIC PARTNERS plc") == "Coca-Cola Europacific Partners plc" and rn("NVIDIA Corp") == "NVIDIA Corp" \
+        and rn("BANK OF AMERICA CORP /DE/") == "Bank of America Corp" and rn("JPMORGAN CHASE & CO") == "JPMorgan Chase & Co", "names"
+    return "predecessor, negative bases, search, names, operating income from stored lines, margins above 100%"
 
 
 _DATA_SWAP = r"""

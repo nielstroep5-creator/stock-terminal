@@ -6,7 +6,7 @@ it is done. Then two people (or two Claudes) never change the same part at the s
 Format: `- name: what you are doing (files or part of the app) - since date`
 
 Example:
-- Niels: Compare page, saved charts (app.js compare section) - since 2026-11-15
+- Niels: Compare page, saved charts (ui/src/pages/Compare.tsx) - since 2026-11-15
 
 ## Now
 - Niels (Claude): fixes from the 1.1 review, branch review-fixes (all over the app: first start, data setup, own trades, Compare, Alerts rules, offline behaviour, names, docs) - since 2026-11-25

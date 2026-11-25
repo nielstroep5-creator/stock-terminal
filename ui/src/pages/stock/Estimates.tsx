@@ -331,7 +331,7 @@ export function Estimates({ t }: { t: string }) {
         </Top>
         <Top label="Analyst rating">
           <div className={cn('mt-1 text-2xl font-bold tracking-tight', has(r.mean) && (r.mean < 2.5 ? 'text-up' : r.mean >= 3.5 ? 'text-down' : ''))}>{ratingText(r.mean)}</div>
-          <div className="text-xs text-muted-foreground">Score {r.mean ? r.mean.toFixed(2) : '–'} (1 = strong buy, 5 = strong sell) · {recN || r.analysts || '–'} ratings</div>
+          <div className="text-xs text-muted-foreground">Score {r.mean ? r.mean.toFixed(1) : '–'} (1 = strong buy, 5 = strong sell) · {recN || r.analysts || '–'} ratings</div>
           {recN > 0 && rec0 && (
             <>
               <div className="mt-5 flex h-2.5 gap-0.5 overflow-hidden rounded-full">

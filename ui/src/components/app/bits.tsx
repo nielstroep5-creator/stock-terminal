@@ -1,4 +1,6 @@
+import { CircleHelp } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Hint } from '@/components/ui/tooltip'
 import { fmt } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -56,4 +58,19 @@ export function Stat({ label, value, sub, tip, className }: { label: string; val
 /** A centred message in an empty card: nothing to show yet, or loading. */
 export function Empty({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn('flex min-h-32 flex-col items-center justify-center gap-2 p-8 text-center text-[13px] text-muted-foreground', className)}>{children}</div>
+}
+
+/** "How to read this": the explanation of a chart or table behind one small button instead of lines of small
+    print under it. Opens on click and stays open while you read. */
+export function HowToRead({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60', className)}>
+          <CircleHelp className="size-3.5" /> How to read this
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80 p-3 text-[13px] leading-relaxed">{children}</PopoverContent>
+    </Popover>
+  )
 }

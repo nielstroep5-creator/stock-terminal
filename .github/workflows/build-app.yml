@@ -165,6 +165,9 @@ jobs:
       - name: Check the tag matches the app version
         id: v
         run: |
+          if [ ! -f stockterminal/__init__.py ]; then
+            echo "The tag $GITHUB_REF_NAME points at a commit without the app (website only?). Tag a commit on master."; exit 1
+          fi
           version=$(python3 -c 'import stockterminal; print(stockterminal.__version__)')
           tag="${GITHUB_REF_NAME#v}"
           if [ "$version" != "$tag" ]; then echo "tag $tag but stockterminal/__init__.py says $version"; exit 1; fi
@@ -174,6 +177,16 @@ jobs:
           base="${{ steps.v.outputs.version }}"; base="${base%%-*}"
           awk -v v="$base" '$0 ~ "^## "v"( |$)" {on=1; next} /^## / {if (on) exit} on' CHANGELOG.md > notes.md
           [ -s notes.md ] || echo "Stock Terminal ${{ steps.v.outputs.version }}" > notes.md
+          cat >> notes.md <<'EOF'
+
+          ### How to install
+          - **Windows 10/11:** download `Stock-Terminal-Setup-*.exe` below and run it. If Windows SmartScreen warns,
+            click "More info" and "Run anyway" (the app is not signed).
+          - **Mac (Apple chip, M1 or newer):** download `Stock-Terminal-*-mac.zip`, unzip it and drag Stock Terminal to
+            Applications. The first time, right-click it and choose Open (macOS warns because the app is not signed).
+          - Already installed? The app updates itself (Settings > About). Your data and settings stay where they are.
+          - Download page: https://nielstroep5-creator.github.io/stock-terminal/
+          EOF
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}

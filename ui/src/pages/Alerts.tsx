@@ -344,7 +344,7 @@ function Rules() {
     .filter(Boolean).join(', ')
   return (
     <>
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <Card className="px-5 py-1">
           <Line id="limit" icon={Target} title="Price limits" on="limit_on" push="limit_push"
             summary={`When a stock passes your limit or the buy-below price on your watchlist${r.get('live_on', true) ? ', checked every 5 minutes while markets are open' : ', checked at 07:00'}`}>

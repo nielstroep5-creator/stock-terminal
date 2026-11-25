@@ -5,7 +5,7 @@ import { AlertBell } from '@/components/app/AlertBell'
 import { Link, useNavigate } from 'react-router-dom'
 import { NewsCard } from '@/components/app/News'
 import { Card, Page } from '@/components/app/Page'
-import { Empty, H2, Kv, Stat } from '@/components/app/bits'
+import { Empty, H2, Kv, Stat, HowToRead } from '@/components/app/bits'
 import { EChart, baseOption, useChartColors } from '@/components/chart/EChart'
 import { Button } from '@/components/ui/button'
 import { ChangePill } from '@/components/ui/pill'
@@ -218,7 +218,7 @@ function PriceChart({ h }: { h: HoldingData }) {
     <Card className="min-w-0 p-4">
       <H2 side={<><Segmented label="Range of the price chart" value={range} onChange={(v) => setPref('ui2', 'price_range', v)} options={RANGES.map((r) => ({ value: r, label: r }))} />{view && <ChangePill value={view.change}>{pctTxt(view.change)}</ChangePill>}</>}>Price</H2>
       {option ? <EChart option={option} className="h-[320px]" /> : <Empty className="h-[320px]">{h.symbol ? 'No price history from Yahoo yet.' : 'No Yahoo symbol found for this holding.'}</Empty>}
-      <p className="mt-2 text-xs text-muted-foreground">Green triangles: your buys, red: your sells, dashed line: your average price. Split-adjusted, in {pc}.</p>
+      <HowToRead className="mt-2">Green triangles: your buys, red: your sells, dashed line: your average price. Split-adjusted, in {pc}.</HowToRead>
     </Card>
   )
 }
