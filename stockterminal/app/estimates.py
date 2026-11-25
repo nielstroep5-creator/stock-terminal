@@ -121,7 +121,10 @@ def _guess_q0(snap, q_rep, fye):
         return (m[0] + 1, m[1])
     if _same(cal.get("Earnings Average"), eps.get("0q", {}).get("avg")) and isinstance(cal.get("Earnings Date"), str):
         # the next report is for 0q: the fiscal quarter that ended last before that date
-        return _quarter_before(dt.date.fromisoformat(cal["Earnings Date"][:10]), fye)
+        try:
+            return _quarter_before(dt.date.fromisoformat(cal["Earnings Date"][:10]), fye)
+        except ValueError:          # Yahoo sometimes gives an empty or odd date (ANT, Nov 2026)
+            return None
     return None
 
 
