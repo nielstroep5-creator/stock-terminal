@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, CalendarDays, ExternalLink, List, Loader2, Moon, Ro
 import type { ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Card, Page } from '@/components/app/Page'
-import { Empty, H2, Stat } from '@/components/app/bits'
+import { Empty, H2, HowToRead, Stat } from '@/components/app/bits'
 import { Logo } from '@/components/app/Logo'
 import { Button } from '@/components/ui/button'
 import { Segmented } from '@/components/ui/segmented'
@@ -114,14 +114,16 @@ export function EarningsPage() {
           <Past d={d} />
         </>
       )}
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        Dates, estimates and reported EPS from Yahoo, looked up again after 20 hours. A date with ≈ or a dashed outline is not confirmed:
-        a range Yahoo gives, or (≈) a date expected from the company's own rhythm (about 52 weeks after the same quarter last year).
-        Surprise = reported EPS against the average analyst estimate (adjusted EPS, as analysts estimate it). Revenue against the estimate
-        comes from the earnings watch, for results it saw coming in. Price reaction = the last close before the results day to the first close after it.
-        {!!d.etfs.length && <span className="block">ETFs are left out (funds report no results): {d.etfs.join(', ')}.</span>}
-        {!!d.missing.length && <span className="block">No calendar from Yahoo yet for: {d.missing.join(', ')}.</span>}
-      </p>
+      <div className="flex flex-col items-start gap-1 text-xs text-muted-foreground">
+        <HowToRead>
+          Dates, estimates and reported EPS from Yahoo, looked up again after 20 hours. A date with ≈ or a dashed outline is not confirmed:
+          a range Yahoo gives, or (≈) a date expected from the company's own rhythm (about 52 weeks after the same quarter last year).
+          Surprise = reported EPS against the average analyst estimate (adjusted EPS, as analysts estimate it). Revenue against the estimate
+          comes from the earnings watch, for results it saw coming in. Price reaction = the last close before the results day to the first close after it.
+        </HowToRead>
+        {!!d.etfs.length && <span>ETFs are left out (funds report no results): {d.etfs.join(', ')}.</span>}
+        {!!d.missing.length && <span>No calendar from Yahoo yet for: {d.missing.join(', ')}.</span>}
+      </div>
     </Page>
   )
 }
@@ -189,11 +191,15 @@ function ComingUp({ d }: { d: Cal }) {
         Coming up
       </H2>
       {!ahead.length ? <Empty>No results dates ahead yet.</Empty> : view === 'weeks' ? <Weeks d={d} ahead={ahead} /> : <AheadTable ahead={ahead} today={d.today} />}
-      <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1">{TIME.before[0]} before the open</span>
-        <span className="flex items-center gap-1">{TIME.after[0]} after the close</span>
-        <span className="flex items-center gap-1"><span className="inline-block h-3 w-5 rounded border border-dashed" /> not confirmed</span>
-        {d.held_count > 0 && <span className="flex items-center gap-1"><span className="inline-block h-3 w-5 rounded border border-primary/50" /> in your portfolio</span>}
+      <div className="mt-2">
+        <HowToRead>
+          <div className="flex flex-col gap-1.5">
+            <span className="flex items-center gap-1.5">{TIME.before[0]} results before the market opens</span>
+            <span className="flex items-center gap-1.5">{TIME.after[0]} results after the market closes</span>
+            <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-5 rounded border border-dashed" /> date not confirmed by the company yet</span>
+            {d.held_count > 0 && <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-5 rounded border border-primary/50" /> a stock in your portfolio</span>}
+          </div>
+        </HowToRead>
       </div>
     </Card>
   )

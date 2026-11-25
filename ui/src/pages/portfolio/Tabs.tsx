@@ -3,7 +3,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Card } from '@/components/app/Page'
-import { Empty, H2, Kv, Stat } from '@/components/app/bits'
+import { Empty, H2, Kv, Stat, HowToRead } from '@/components/app/bits'
 import { useChartColors } from '@/components/chart/EChart'
 import { Segmented } from '@/components/ui/segmented'
 import { Hint } from '@/components/ui/tooltip'
@@ -212,7 +212,7 @@ export function XrayTab() {
                   <div className="mt-1 h-1.5 rounded-full bg-secondary"><div className="h-1.5 rounded-full bg-primary" style={{ width: `${o.overlap * 100}%` }} /></div>
                 </div>
               ))}
-              <p className="mt-2 text-xs text-muted-foreground">The part of the two ETFs that holds the same companies in the same amounts. High overlap: the second ETF adds little spread.</p>
+              <HowToRead className="mt-2">The part of the two ETFs that holds the same companies in the same amounts. High overlap: the second ETF adds little spread.</HowToRead>
             </Card>
           )}
         </div>
@@ -429,7 +429,7 @@ export function AnalysisTab() {
               })}
             </tbody>
           </table>
-          <p className="mt-3 text-xs text-muted-foreground">From Yahoo for every holding. ETFs count with their own P/E and yield; growth and margins are about your shares only ("Covers" = the part of your portfolio a figure is based on).</p>
+          <HowToRead className="mt-3">From Yahoo for every holding. ETFs count with their own P/E and yield; growth and margins are about your shares only ("Covers" = the part of your portfolio a figure is based on).</HowToRead>
         </Card>
         <Card className="p-4">
           <H2>Risk</H2>
@@ -481,7 +481,7 @@ export function AnalysisTab() {
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">Share of the risk: how much of the portfolio's swings each holding causes (its weight × how it moves with the rest). Red: clearly more risk than its weight. Blue bar: share of the risk, grey: weight.</p>
+          <HowToRead className="mt-2">Share of the risk: how much of the portfolio's swings each holding causes (its weight × how it moves with the rest). Red: clearly more risk than its weight. Blue bar: share of the risk, grey: weight.</HowToRead>
           <button type="button" onClick={() => setCorrOpen(!corrOpen)} className="mt-3 inline-flex items-center gap-1 text-[13px] font-medium text-primary hover:underline">
             <ChevronDown className={cn('size-4 transition-transform', corrOpen && 'rotate-180')} /> Which holdings move together
           </button>

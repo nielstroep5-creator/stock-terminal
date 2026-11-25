@@ -12,6 +12,7 @@ import { fmt } from '@/lib/format'
 import { useSettings } from '@/lib/settings'
 import { cn } from '@/lib/utils'
 import { scrollToNewest } from '@/pages/stock/Financials'
+import { HowToRead } from '@/components/app/bits'
 import { SHAPES, csvLine, numberColor } from './state'
 import type { Chart, Field } from './state'
 
@@ -413,10 +414,10 @@ export function FinChart({ chart, tickers, colors, fields, full, exporter, onRan
         </div>
       )}
       {model && (model.hasEst || cal || model.flagged) && (
-        <p className="mt-2 text-xs text-muted-foreground">
+        <HowToRead className="mt-2">
           {cal ? 'Calendar years: the four quarters that fall in January to December added up (balance sheet: the value at the end of the year). The current year is not complete yet: its lighter bar shows the last 12 months up to the latest quarter. ' : model.hasEst ? 'Faded bars and dashed lines marked (E) are analyst estimates for fiscal years not reported yet. Years sit in the calendar year in which the fiscal year ends. ' : ''}
           {model.flagged && <>A <span className="text-flag">▲</span> marks a value that did not pass a consistency check; hover it to see why.</>}
-        </p>
+        </HowToRead>
       )}
       {model && !full && (
         <div className="-mx-4 mt-4 border-t px-4 pt-3">

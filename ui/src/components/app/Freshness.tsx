@@ -57,7 +57,7 @@ export function Freshness() {
     >
       <span className="hidden h-7 cursor-help items-center gap-1.5 rounded-md border border-flag/40 bg-flag/10 px-2 text-xs font-medium whitespace-nowrap text-flag sm:inline-flex">
         <span className="size-1.5 rounded-full bg-flag" />
-        {offline ? 'Offline' : 'Old prices'}<span className="hidden xl:inline">, closes of {day(s.prices_date, false)}</span>
+        <span>{offline ? 'Offline' : 'Old prices'}<span className="hidden xl:inline">, closes of {day(s.prices_date, false)}</span></span>
       </span>
     </Hint>
   )
