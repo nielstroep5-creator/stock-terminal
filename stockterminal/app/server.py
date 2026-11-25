@@ -913,8 +913,13 @@ def etf_holdings(ticker: str, live: int = 0):
 @app.get("/api/etfs")
 def etf_list(live: int = 0):
     rows = q("""SELECT e.ticker, e.name, e.family, e.category, e.expense_ratio, e.total_assets, e.yield_ AS yield,
-                (SELECT close FROM prices p WHERE p.ticker=e.ticker AND p.close IS NOT NULL ORDER BY date DESC LIMIT 1) AS close
+                (SELECT close FROM prices p WHERE p.ticker=e.ticker AND p.close IS NOT NULL ORDER BY date DESC LIMIT 1) AS close,
+                (SELECT close FROM prices p WHERE p.ticker=e.ticker AND p.close IS NOT NULL ORDER BY date DESC LIMIT 1 OFFSET 1) AS prev,
+                (SELECT MAX(date) FROM prices p WHERE p.ticker=e.ticker) AS date
                 FROM etfs e ORDER BY e.total_assets DESC""")
+    for r in rows:                 # without a live quote: the change of the last stored day (the Today column says which)
+        prev = r.pop("prev")
+        r["change"] = r["close"] / prev - 1 if r["close"] and prev else None
     if live:
         qs = quote.get_quotes([r["ticker"] for r in rows])
         for r in rows:

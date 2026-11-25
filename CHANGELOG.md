@@ -30,6 +30,7 @@ Settings > About. Versions: 1.0.1 = fixes, 1.1.0 = new features.
 - Compare: the latest numbers at the end of the lines no longer sit on top of each other, and the tables that
   scroll sideways show a soft edge instead of a column that looks cut off.
 - Alerts > Rules fits a small window (below about 1000 pixels the list ran off the side).
+- ETFs page without internet: the change column shows the last stored day ("Last day") instead of staying empty.
 - The code is now open source: github.com/nielstroep5-creator/stock-terminal (MIT licence).
 
 ## 1.1.0 (2026-11-25)
