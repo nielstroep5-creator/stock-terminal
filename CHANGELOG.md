@@ -5,6 +5,7 @@ Settings > About. Versions: 1.0.1 = fixes, 1.1.0 = new features.
 
 ## 1.2.0 (coming)
 
+- Settings in a small window: the section links sit in a row above the settings instead of lying on top of them.
 - The code is now open source: github.com/nielstroep5-creator/stock-terminal (MIT licence).
 
 ## 1.1.0 (2026-11-25)

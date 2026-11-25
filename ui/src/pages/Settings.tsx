@@ -404,8 +404,11 @@ export function SettingsPage() {
         </div>
       }
     >
-      <div className="flex flex-wrap items-start gap-6">
-        <nav aria-label="Settings sections" className="sticky top-20 flex w-[220px] max-w-full flex-col gap-0.5">
+      {/* Wide: the sections stay on the left while you scroll. Narrow (small window): a row of section links above
+          the settings, not sticky, so it never lies on top of them. Measured on this area, not on the window. */}
+      <div className="@container">
+      <div className="flex flex-col gap-4 @3xl:flex-row @3xl:items-start @3xl:gap-6">
+        <nav aria-label="Settings sections" className="flex flex-wrap gap-1 @3xl:sticky @3xl:top-20 @3xl:w-[220px] @3xl:shrink-0 @3xl:flex-col @3xl:flex-nowrap @3xl:gap-0.5">
           {SECTIONS.map((s) => (
             <a
               key={s.id}
@@ -414,14 +417,14 @@ export function SettingsPage() {
                 e.preventDefault()
                 document.getElementById(`sec-${s.id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
               }}
-              className="flex h-9 items-center gap-2.5 rounded-md px-2.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              className="flex h-9 items-center gap-2.5 rounded-md border border-border px-2.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground @3xl:border-transparent"
             >
               <s.icon className="size-4" />
               {s.label}
             </a>
           ))}
         </nav>
-        <div className="flex min-w-0 flex-[999_1_480px] flex-col gap-5">
+        <div className="flex min-w-0 flex-1 flex-col gap-5">
           {broken.data?.copy && (
             <Card className="border-flag px-5 py-3.5">
               Your settings file was damaged, so the app started with the default settings. The old file is kept as{' '}
@@ -444,6 +447,7 @@ export function SettingsPage() {
           })}
           {!visible.length && <Card className="px-6 py-12 text-center text-muted-foreground">No setting matches "{filter}".</Card>}
         </div>
+      </div>
       </div>
     </Page>
   )

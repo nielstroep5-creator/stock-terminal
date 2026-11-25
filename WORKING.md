@@ -9,4 +9,3 @@ Example:
 - Niels: Compare page, saved charts (app.js compare section) - since 2026-11-15
 
 ## Now
-- Claude (for Niels): Settings page layout on small windows (ui/src/pages/Settings.tsx) - since 2026-11-25
